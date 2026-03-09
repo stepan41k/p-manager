@@ -1,28 +1,106 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "os/signal"
-    "syscall"
-    "time"
+	"fmt"
+	"io"
+	"os"
+	"strings"
 
-    tea "github.com/charmbracelet/bubbletea"
-    "github.com/charmbracelet/wish"
-    bm "github.com/charmbracelet/wish/bubbletea"
-    lm "github.com/charmbracelet/wish/logging"
-    "github.com/charmbracelet/ssh"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
-type Storage interface {
-	Save(data []byte) error
-	Load() ([]byte, error)
+const listHeight = 14
+
+type styles struct {
+	title        lipgloss.Style
+	item         lipgloss.Style
+	selectedItem lipgloss.Style
+	pagination   lipgloss.Style
+	help         lipgloss.Style
+	quitText     lipgloss.Style
+}
+
+func newStyles(darkBG bool) styles {
+	var s styles
+	s.title = lipgloss.NewStyle().MarginLeft(2)
+	s.item = lipgloss.NewStyle().PaddingLeft(4)
+	s.selectedItem = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
+	s.pagination = list.DefaultStyles(darkBG).PaginationStyle.PaddingLeft(4)
+	s.help = list.DefaultStyles(darkBG).HelpStyle.PaddingLeft(4).PaddingBottom(1)
+	s.quitText = lipgloss.NewStyle().Margin(1, 0, 2, 4)
+	return s
+}
+
+type item string
+
+func (i item) FilterValue() string { return "" }
+
+type itemDelegate struct {
+	styles *styles
+}
+
+func (d itemDelegate) Height() int                             { return 1 }
+func (d itemDelegate) Spacing() int                            { return 0 }
+func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	i, ok := listItem.(item)
+	if !ok {
+		return
+	}
+
+	str := fmt.Sprintf("%d. %s", index+1, i)
+
+	fn := d.styles.item.Render
+	if index == m.Index() {
+		fn = func(s ...string) string {
+			return d.styles.selectedItem.Render("> " + strings.Join(s, " "))
+		}
+	}
+
+	fmt.Fprint(w, fn(str))
 }
 
 type model struct {
-    choices  []string
-    cursor   int
+	list     list.Model
+	choice   string
+	styles   styles
+	quitting bool
+}
+
+func initialModel() model {
+	items := []list.Item{
+		item("Ramen"),
+		item("Tomato Soup"),
+		item("Hamburgers"),
+		item("Cheeseburgers"),
+		item("Currywurst"),
+		item("Okonomiyaki"),
+		item("Pasta"),
+		item("Fillet Mignon"),
+		item("Caviar"),
+		item("Just Wine"),
+	}
+
+	const defaultWidth = 20
+
+	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
+	l.Title = "What do you want for dinner?"
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false)
+
+	m := model{list: l}
+	m.updateStyles(true) // default to dark styles.
+	return m
+}
+
+func (m *model) updateStyles(isDark bool) {
+	m.styles = newStyles(isDark)
+	m.list.Styles.Title = m.styles.title
+	m.list.Styles.PaginationStyle = m.styles.pagination
+	m.list.Styles.HelpStyle = m.styles.help
+	m.list.SetDelegate(itemDelegate{styles: &m.styles})
 }
 
 func (m model) Init() tea.Cmd {
@@ -30,48 +108,44 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    switch msg := msg.(type) {
-    case tea.KeyMsg:
-        if msg.String() == "q" { return m, tea.Quit }
-    }
-    return m, nil
-}
-func (m model) View() string {
-    return "Мой менеджер паролей через SSH!\nНажми 'q' для выхода.\n"
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.list.SetWidth(msg.Width)
+		return m, nil
+
+	case tea.KeyPressMsg:
+		switch keypress := msg.String(); keypress {
+		case "q", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+
+		case "enter":
+			i, ok := m.list.SelectedItem().(item)
+			if ok {
+				m.choice = string(i)
+			}
+			return m, tea.Quit
+		}
+	}
+
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
 }
 
-func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
-    m := model{
-        choices: []string{"Google", "Github", "Bank"},
-    }
-    return m, []tea.ProgramOption{tea.WithAltScreen()}
+func (m model) View() tea.View {
+	if m.choice != "" {
+		return tea.NewView(m.styles.quitText.Render(fmt.Sprintf("%s? Sounds good to me.", m.choice)))
+	}
+	if m.quitting {
+		return tea.NewView(m.styles.quitText.Render("Not hungry? That’s cool."))
+	}
+	return tea.NewView("\n" + m.list.View())
 }
 
 func main() {
-    s, err := wish.NewServer(
-        wish.WithAddress("0.0.0.0:2222"),
-        wish.WithHostKeyPath("/Documents/workspace/p-manager/.ssh/term_info_ed25519"),
-        wish.WithMiddleware(
-            bm.Middleware(teaHandler),
-            lm.Middleware(), 
-        ),
-    )
-    if err != nil {
-        fmt.Printf("Ошибка сервера: %v\n", err)
-        return
-    }
-
-    done := make(chan os.Signal, 1)
-    signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-    
-    go func() {
-        if err = s.ListenAndServe(); err != nil {
-            fmt.Printf("Ошибка ListenAndServe: %v\n", err)
-        }
-    }()
-
-    <-done
-    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-    defer cancel()
-    s.Shutdown(ctx)
+	if _, err := tea.NewProgram(initialModel()).Run(); err != nil {
+		fmt.Println("Error running program:", err)
+		os.Exit(1)
+	}
 }
