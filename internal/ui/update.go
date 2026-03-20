@@ -1,32 +1,29 @@
 package ui
 
-import tea "github.com/charmbracelet/bubbletea"
+import tea "charm.land/bubbletea/v2"
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// switch msg := msg.(type) {
-	// case tea.KeyMsg:
-	// 	switch msg.String() {
-	// 	case "ctrl+c", "q":
-	// 		return m, tea.Quit
-	// 	}
-	// case tea.WindowSizeMsg:
-	// 	m.width, m.height = msg.Width, msg.Height
-	// }
-
-	// if m.state == authState {
-	// 	return m.updateAuth(msg)
-	// }
-
-	// return m.updateList(msg)
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case " ":
-			m.Counter++
+	case tea.WindowSizeMsg:
+		m.list.SetWidth(msg.Width)
+		return m, nil
+
+	case tea.KeyPressMsg:
+		switch keypress := msg.String(); keypress {
 		case "q", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+
+		case "enter":
+			i, ok := m.list.SelectedItem().(Item)
+			if ok {
+				m.choice = string(i)
+			}
 			return m, tea.Quit
 		}
 	}
 
-	return m, nil
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
 }
