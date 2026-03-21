@@ -6,12 +6,12 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/list"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stepan41k/p-manager/internal/ui/styles"
 )
 
 type ItemDelegate struct {
-	styles *styles.Styles
+	styles styles.Styles
 }
 
 func (d ItemDelegate) Height() int                             { return 1 }
@@ -25,10 +25,10 @@ func (d ItemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 	str := fmt.Sprintf("%d. %s", index+1, i)
 
-	fn := d.styles.item.Render
+	fn := d.styles.Item.Render
 	if index == m.Index() {
 		fn = func(s ...string) string {
-			return d.styles.selectedItem.Render("> " + strings.Join(s, " "))
+			return d.styles.SelectedItem.Render("> " + strings.Join(s, " "))
 		}
 	}
 
