@@ -2,7 +2,7 @@ package ui
 
 import (
 	"charm.land/bubbles/v2/list"
-	tea "github.com/charmbracelet/bubbletea"
+	// tea "charm.land/bubbletea/v2"
 	"github.com/stepan41k/p-manager/internal/ui/styles"
 )
 
@@ -12,15 +12,16 @@ type sessionState int
 
 const (
 	authState sessionState = iota
-	listState
-	addState
+	vaultState
+	entryState
 )
 
 type Model struct {
-	list     list.Model
-	choice   string
-	styles   styles.Styles
-	quitting bool 
+	State sessionState
+	List     list.Model
+	Choice   string
+	Styles   styles.Styles
+	Quitting bool 
 	// state sessionState
 	// list list.Model
 	// masterInput textinput.Model
@@ -29,7 +30,7 @@ type Model struct {
 	// height int
 }
 
-func (m Model) NewModel() tea.Cmd{
+func NewModel() *Model {
 	items := []list.Item{
 		Item("Ramen"),
 		Item("Tomato Soup"),
@@ -50,15 +51,15 @@ func (m Model) NewModel() tea.Cmd{
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 
-	m = Model{list: l}
-	m.UpdateStyles(true) // default to dark styles.
+	m := &Model{List: l}
+	m.UpdateStyles(true)
 	return m
 }
 
 func (m *Model) UpdateStyles(isDark bool) {
-	m.styles = styles.NewStyles(isDark)
-	m.list.Styles.Title = m.styles.title
-	m.list.Styles.PaginationStyle = m.styles.pagination
-	m.list.Styles.HelpStyle = m.styles.help
-	m.list.SetDelegate(itemDelegate{styles: &m.styles})
+	m.Styles = styles.NewStyles(isDark)
+	m.List.Styles.Title = m.Styles.Title
+	m.List.Styles.PaginationStyle = m.Styles.Pagination
+	m.List.Styles.HelpStyle = m.Styles.Help
+	m.List.SetDelegate(ItemDelegate{styles: m.Styles})
 }
