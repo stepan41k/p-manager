@@ -1,7 +1,13 @@
 package ui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+)
 
 func (m *Model) Init() tea.Cmd {
-	return tea.RequestBackgroundColor
+	return tea.Batch(
+		// tea.EnterAltScreen,
+		textinput.Blink,
+	)
 }
