@@ -19,7 +19,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if ok {
 				m.Choice = string(i)
 			}
-			return m, tea.Quit
 		}
 	}
 
