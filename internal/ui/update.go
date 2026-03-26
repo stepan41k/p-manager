@@ -1,28 +1,120 @@
 package ui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+)
 
-func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+type vaultLoadedMsg []list.Item 
+
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {	
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		if key.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+	} 
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.List.SetWidth(msg.Width)
-		return m, nil
-
+		m.vaultList.SetSize(msg.Width, msg.Height)
 	case tea.KeyPressMsg:
-		switch keypress := msg.String(); keypress {
-		case "q", "ctrl+c":
-			m.Quitting = true
-			return m, tea.Quit
+        if msg.String() == "ctrl+c" {
+            return m, tea.Quit
+        }
+	case vaultLoadedMsg:
+		m.vaultList.SetItems(msg)
+		m.vaultList.Title = "My passwords"
+		m.state = vaultState
+		return m, nil
+	}
 
+	switch m.state {
+	case authState:
+		newModel, cmd := m.updateAuth(msg)
+		return newModel, cmd
+	case vaultState:
+		return m.updateVault(msg)
+	case entryState:
+		return m.updateEntry(msg)
+	}
+
+	return m, nil
+
+	
+
+	// case tea.KeyPressMsg:
+	// 	switch keypress := msg.String(); keypress {
+	// 	case "q", "ctrl+c":
+	// 		m.quitting = true
+	// 		return m, tea.Quit
+
+	// 	case "enter":
+	// 		i, ok := m.list.SelectedItem().(Item)
+	// 		if ok {
+	// 			m.choice = string(i)
+	// 			m.state = vaultState	
+	// 		}
+	// 	}
+	// }
+
+	// var cmd tea.Cmd
+	// m.list, cmd = m.list.Update(msg)
+	// return m, cmd
+}
+
+func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
 		case "enter":
-			i, ok := m.List.SelectedItem().(Item)
-			if ok {
-				m.Choice = string(i)
+			password := m.passInput.Value()
+
+			//crypto
+
+			if password == "secret" {
+				m.state = vaultState
+
+				return m, loadVaultCmd(password)
+
+
+			} else {
+				m.errorMessage = "Неверный пароль!"
+				m.passInput.SetValue("")
+				return m, nil
 			}
 		}
 	}
 
-	var cmd tea.Cmd
-	m.List, cmd = m.List.Update(msg)
+	m.passInput, cmd = m.passInput.Update(msg)
 	return m, cmd
+}
+
+func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	m.vaultList, cmd = m.vaultList.Update(msg)
+
+	return m, cmd
+}
+
+func (m *Model) updateEntry(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	return m, cmd
+}
+
+
+
+func loadVaultCmd(password string) tea.Cmd {
+    return func() tea.Msg {
+
+        items := []list.Item{
+            Item{title: "Github", desc: "my-nick"},
+            Item{title: "Google", desc: "admin@gmail.com"},
+        }
+
+        return vaultLoadedMsg(items)
+    }
 }
