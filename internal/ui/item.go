@@ -1,8 +1,11 @@
 package ui
 
-type Item string
+type Item struct {
+	title string
+	desc string
+}
 
-func (i Item) FilterValue() string { return "" }
-func (i Item) Title() string       { return ""}
-func (i Item) Description() string { return ""}
+func (i Item) FilterValue() string { return i.title }
+func (i Item) Title() string       { return i.title}
+func (i Item) Description() string { return i.desc}
 
