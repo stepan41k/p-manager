@@ -2,64 +2,84 @@ package ui
 
 import (
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
 	// tea "charm.land/bubbletea/v2"
 	"github.com/stepan41k/p-manager/internal/ui/styles"
 )
 
-const listHeight = 14
+const (
+	listHeight = 14
+	defaultWidth = 20
+)
 
 type sessionState int
 
 const (
-	authState sessionState = iota
-	vaultState
-	entryState
+	authState sessionState = iota	// Ввод мастер-пароля
+	vaultState						// Поиск и выбор аккаунта
+	entryState						// Просмотр деталей или добавление нового пароля
 )
 
 type Model struct {
-	State sessionState
-	List     list.Model
-	Choice   string
-	Styles   styles.Styles
-	Quitting bool 
-	// state sessionState
-	// list list.Model
-	// masterInput textinput.Model
+	state sessionState
+	passInput textinput.Model
+	vaultList     list.Model
+	choice   string
+	styles   styles.Styles
+	errorMessage string
+	quitting bool 
 	// errorMsg string
-	// width int
-	// height int
 }
 
 func NewModel() *Model {
-	items := []list.Item{
-		Item("Ramen"),
-		Item("Tomato Soup"),
-		Item("Hamburgers"),
-		Item("Cheeseburgers"),
-		Item("Currywurst"),
-		Item("Okonomiyaki"),
-		Item("Pasta"),
-		Item("Fillet Mignon"),
-		Item("Caviar"),
-		Item("Just Wine"),
+	// items := []list.Item{
+	// 	// Item("Google"),
+	// 	// Item("Yandex"),
+	// 	// Item("Lamoda"),
+	// 	// Item("Ozon"),
+	// 	// Item("Wildberries"),
+	// 	// Item("Avito"),
+	// 	// Item("Uber"),
+	// 	// Item("GitHub"),
+	// 	// Item("Steam"),
+	// 	// Item("Music"),
+	// }
+
+	ti := textinput.New()
+	ti.EchoMode = textinput.EchoPassword
+	ti.Placeholder = "Введите мастер-пароль"
+	ti.EchoCharacter = '*'
+	ti.Focus()
+	
+
+	defaultDelegate := list.NewDefaultDelegate()
+
+	vList := list.New([]list.Item{}, defaultDelegate, 0, 0)
+	vList.Title = "Загрузка..."
+
+	// l := list.New(items, ItemDelegate{}, defaultWidth, listHeight)
+	// l.Title = "Input password:"
+	// l.SetShowStatusBar(false)
+	// l.SetFilteringEnabled(false)
+
+	// m := &Model{state: authState, list: l}
+	// m.UpdateStyles(true)
+
+	m := &Model{
+		state: authState,
+		passInput: ti,
+		vaultList: vList,
 	}
 
-	const defaultWidth = 20
-
-	l := list.New(items, ItemDelegate{}, defaultWidth, listHeight)
-	l.Title = "What do you want for dinner?"
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-
-	m := &Model{List: l}
 	m.UpdateStyles(true)
+
 	return m
 }
 
-func (m *Model) UpdateStyles(isDark bool) {
-	m.Styles = styles.NewStyles(isDark)
-	m.List.Styles.Title = m.Styles.Title
-	m.List.Styles.PaginationStyle = m.Styles.Pagination
-	m.List.Styles.HelpStyle = m.Styles.Help
-	m.List.SetDelegate(ItemDelegate{styles: m.Styles})
+func (m Model) UpdateStyles(isDark bool) {
+	m.styles = styles.NewStyles(isDark)
+	m.vaultList.Styles.Title = m.styles.Title
+	m.vaultList.Styles.PaginationStyle = m.styles.Pagination
+	m.vaultList.Styles.HelpStyle = m.styles.Help
+	m.vaultList.SetDelegate(ItemDelegate{styles: m.styles})
 }
