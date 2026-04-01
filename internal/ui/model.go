@@ -24,6 +24,7 @@ type Model struct {
 	state sessionState
 	passInput textinput.Model
 	vaultList     list.Model
+	entryList list.Model
 	choice   string
 	styles   styles.Styles
 	errorMessage string
@@ -32,18 +33,6 @@ type Model struct {
 }
 
 func NewModel() *Model {
-	// items := []list.Item{
-	// 	// Item("Google"),
-	// 	// Item("Yandex"),
-	// 	// Item("Lamoda"),
-	// 	// Item("Ozon"),
-	// 	// Item("Wildberries"),
-	// 	// Item("Avito"),
-	// 	// Item("Uber"),
-	// 	// Item("GitHub"),
-	// 	// Item("Steam"),
-	// 	// Item("Music"),
-	// }
 
 	ti := textinput.New()
 	ti.EchoMode = textinput.EchoPassword
@@ -51,19 +40,10 @@ func NewModel() *Model {
 	ti.EchoCharacter = '*'
 	ti.Focus()
 	
-
 	defaultDelegate := list.NewDefaultDelegate()
 
 	vList := list.New([]list.Item{}, defaultDelegate, 0, 0)
 	vList.Title = "Загрузка..."
-
-	// l := list.New(items, ItemDelegate{}, defaultWidth, listHeight)
-	// l.Title = "Input password:"
-	// l.SetShowStatusBar(false)
-	// l.SetFilteringEnabled(false)
-
-	// m := &Model{state: authState, list: l}
-	// m.UpdateStyles(true)
 
 	m := &Model{
 		state: authState,
