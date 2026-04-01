@@ -9,7 +9,7 @@ import (
 
 func (m *Model) View() tea.View {
 	var content string
-
+	
 	switch m.state {
 	case authState:
 		content = m.authView()
@@ -20,13 +20,6 @@ func (m *Model) View() tea.View {
 	}
 
 	return tea.NewView(content)
-	// if m.choice != "" {
-	// 	return tea.NewView(m.styles.QuitText.Render(fmt.Sprintf("%s? Sounds good to me.", m.choice)))
-	// }
-	// if m.quitting {
-	// 	return tea.NewView(m.styles.QuitText.Render("Not hungry? That’s cool."))
-	// }
-	// return tea.NewView("\n" + m.list.View())
 }
 
 func (m *Model) authView() string {
