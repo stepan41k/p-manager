@@ -1,5 +1,7 @@
 package crypto
 
+// AES-GCM шифрование
+
 import (
 	"crypto/aes"
 	"crypto/cipher"

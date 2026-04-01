@@ -1,5 +1,7 @@
 package crypto
 
+// Хешированеи мастер-пароля
+
 import (
 	"golang.org/x/crypto/argon2"
 )
