@@ -18,6 +18,7 @@ const (
 	authState sessionState = iota	// Ввод мастер-пароля
 	vaultState						// Поиск и выбор аккаунта
 	entryState						// Просмотр деталей или добавление нового пароля
+	createState						// Создание нового пароля
 )
 
 type Model struct {
@@ -38,6 +39,7 @@ func NewModel() *Model {
 	ti.EchoMode = textinput.EchoPassword
 	ti.Placeholder = "Введите мастер-пароль"
 	ti.EchoCharacter = '*'
+	ti.SetWidth(30)
 	ti.Focus()
 	
 	defaultDelegate := list.NewDefaultDelegate()
