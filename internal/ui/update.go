@@ -40,26 +40,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	return m, nil
 
-	
-
-	// case tea.KeyPressMsg:
-	// 	switch keypress := msg.String(); keypress {
-	// 	case "q", "ctrl+c":
-	// 		m.quitting = true
-	// 		return m, tea.Quit
-
-	// 	case "enter":
-	// 		i, ok := m.list.SelectedItem().(Item)
-	// 		if ok {
-	// 			m.choice = string(i)
-	// 			m.state = vaultState	
-	// 		}
-	// 	}
-	// }
-
-	// var cmd tea.Cmd
-	// m.list, cmd = m.list.Update(msg)
-	// return m, cmd
 }
 
 func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -106,15 +86,22 @@ func (m *Model) updateEntry(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 
-
 func loadVaultCmd(password string) tea.Cmd {
     return func() tea.Msg {
 
         items := []list.Item{
-            Item{title: "Github", desc: "my-nick"},
-            Item{title: "Google", desc: "admin@gmail.com"},
+            VaultItem{resource: "Github", email: "example@gmail.com", username: "stepan", password: "123456789"},
+            VaultItem{resource: "Google", email: "admin@gmail.com", username: "nickname", password: "55112233"},
         }
 
         return vaultLoadedMsg(items)
     }
 }
+
+// func loadEntryCmd() tea.Cmd {
+// 	return func() tea.Msg {
+// 		items := []list.Item{
+// 			Item
+// 		}
+// 	}
+// }
