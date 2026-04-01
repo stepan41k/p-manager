@@ -18,12 +18,12 @@ func (d ItemDelegate) Height() int                             { return 1 }
 func (d ItemDelegate) Spacing() int                            { return 0 }
 func (d ItemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d ItemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(Item)
+	i, ok := listItem.(VaultItem)
 	if !ok {
 		return
 	}
 
-	str := fmt.Sprintf("%d. %s", index+1, i.title)
+	str := fmt.Sprintf("%d. %s", index+1, i.resource)
 
 	fn := d.styles.Item.Render
 	if index == m.Index() {
