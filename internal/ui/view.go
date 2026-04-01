@@ -31,7 +31,7 @@ func (m *Model) authView() string {
 	}
 
 	return fmt.Sprintf(
-		"\n%s\n\n%s\n%s\n\n(нажмите Enter для входа)",
+		"\n%s\n\n%s\n%s\n",
 		title,
 		m.passInput.View(),
 		errStr,
