@@ -1,11 +1,12 @@
 package ui
 
-type Item struct {
-	title string
-	desc string
+type VaultItem struct {
+	resource string
+	email    string
+	username string
+	password string
 }
 
-func (i Item) FilterValue() string { return i.title }
-func (i Item) Title() string       { return i.title}
-func (i Item) Description() string { return i.desc}
-
+func (i VaultItem) FilterValue() string { return i.resource }
+func (i VaultItem) Title() string       { return i.resource }
+func (i VaultItem) Description() string { return i.email + i.username }
