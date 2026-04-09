@@ -7,9 +7,10 @@ import (
 	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
+	sconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/stepan41k/p-manager/internal/config"
 )
 
 type Storage struct {
@@ -17,18 +18,10 @@ type Storage struct {
 	bucket string
 }
 
-type Config struct {
-	AccessKey string
-	SecretKey string
-	Region    string
-	Endpoint  string
-	Bucket    string
-}
-
-func New(ctx context.Context, cfg Config) (*Storage, error) {
-	sConfig, err := config.LoadDefaultConfig(context.Background(),
-		config.WithRegion(cfg.Region),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "")),
+func New(ctx context.Context, cfg config.S3Config) (*Storage, error) {
+	sConfig, err := sconfig.LoadDefaultConfig(context.Background(),
+		sconfig.WithRegion(cfg.Region),
+		sconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "")),
 	)
 	
 	if err != nil {
