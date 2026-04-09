@@ -1,12 +1,12 @@
 package ui
 
 type VaultItem struct {
-	resource string
-	email    string
-	username string
-	password string
+	Resource string `json:"resource"`
+	Email    string	`json:"email"`
+	Username string	`json:"username"`
+	Password string	`json:"password"`
 }
 
-func (i VaultItem) FilterValue() string { return i.resource }
-func (i VaultItem) Title() string       { return i.resource }
-func (i VaultItem) Description() string { return i.email + i.username }
+func (i VaultItem) FilterValue() string { return i.Resource }
+func (i VaultItem) Title() string       { return i.Resource }
+func (i VaultItem) Description() string { return i.Email + " " + i.Username }
