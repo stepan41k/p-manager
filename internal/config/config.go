@@ -43,14 +43,14 @@ func MustLoad() (*Config, error) {
 }
 
 func GetS3Credentials() (string, string, error) {
-	service := "example-app"
+	service := "vault-app"
 
-	accessKey, err := keyring.Get(service, "access-key")
+	accessKey, err := keyring.Get(service, "access_key")
 	if err != nil {
 		return "", "", fmt.Errorf("access key not found in system: %w", err)
 	}
 
-	secretKey, err := keyring.Get(service, "secret-key")
+	secretKey, err := keyring.Get(service, "secret_key")
 	if err != nil {
 		return "", "", fmt.Errorf("secret key not found in system: %w", err)
 	}
