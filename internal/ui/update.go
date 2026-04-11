@@ -31,12 +31,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.state {
 	case authState:
-		newModel, cmd := m.updateAuth(msg)
-		return newModel, cmd
+		return m.updateAuth(msg)
 	case vaultState:
 		return m.updateVault(msg)
 	case stateDetails:
 		return m.updateDetails(msg)
+	case createState:
+		return m.updateCreate(msg)
 	}
 
 	return m, nil
@@ -75,6 +76,10 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
+		case "n":
+			m.state = createState
+			m.setupInputs()
+			return m, nil
 		case "enter":
 			selected := m.vaultList.SelectedItem()
 
@@ -127,11 +132,11 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "enter":
-			if m.focusIndex == len(m.inputs) - 1{
-				newEntry := VaultItem {
+			if m.focusIndex == len(m.inputs)-1 {
+				newEntry := VaultItem{
 					Resource: m.inputs[0].Value(),
 					Username: m.inputs[1].Value(),
-					Email: m.inputs[2].Value(),
+					Email:    m.inputs[2].Value(),
 					Password: m.inputs[3].Value(),
 				}
 				return m, m.saveAndUploadCmd(newEntry)
@@ -142,7 +147,7 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
-	
+
 	var cmd tea.Cmd
 	m.inputs[m.focusIndex], cmd = m.inputs[m.focusIndex].Update(msg)
 	return m, cmd
@@ -150,17 +155,17 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) saveAndUploadCmd(entry VaultItem) tea.Cmd {
 	return func() tea.Msg {
-		// 1. Добавляем новую запись в общий список
-        // (Обычно вы читаете текущий список, добавляете новый и шифруете всё вместе)
-        
-        // 2. Шифруем (заглушка)
-        // encryptedData := crypto.Encrypt(allEntries, m.masterKey)
+		// currentItems := m.vaultList.Items()
+		// var allEntries []VaultItem
 
-        // 3. Отправляем в S3
-        // err := storage.UploadToS3(encryptedData)
-        
-        // if err != nil { return errorMsg(err) }
-        return vaultLoadedMsg(m.vaultList.Items()) // Возвращаемся в список
+		// 2. Шифруем (заглушка)
+		// encryptedData := crypto.Encrypt(allEntries, m.masterKey)
+
+		// 3. Отправляем в S3
+		// err := storage.UploadToS3(encryptedData)
+
+		// if err != nil { return errorMsg(err) }
+		return vaultLoadedMsg(m.vaultList.Items()) // Возвращаемся в список
 	}
 }
 
