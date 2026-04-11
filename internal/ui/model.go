@@ -67,8 +67,31 @@ func NewModel(s3 *s3.Storage) *Model {
 }
 
 func (m *Model) setupInputs() {
+	m.focusIndex = 0
+	
 	m.inputs = make([]textinput.Model, 4)
-
+	
+	
+	for i := range m.inputs {
+			t := textinput.New()
+			t.Width = 30
+			
+			switch i {
+			case 0:
+				t.Placeholder = "Название сервиса"
+				t.Focus()
+			case 1:
+				t.Placeholder = "Логин / Email"
+			case 2:
+				t.Placeholder = "Пароль"
+				// Для поля пароля можно включить скрытие, 
+				// но при создании часто удобнее видеть, что вводишь
+			case 3:
+				
+			}
+			m.inputs[i] = t
+		}
+		
 	m.inputs[0] = textinput.New()
 	m.inputs[0].Placeholder = "Название сервиса"
 	m.inputs[0].Focus()
