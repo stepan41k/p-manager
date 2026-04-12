@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"io"
+	"log/slog"
 
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
@@ -28,20 +29,19 @@ type VaultStorage interface {
 
 type Model struct {
 	storage      VaultStorage
+	masterKey    string
 	state        sessionState
 	passInput    textinput.Model
 	vaultList    list.Model
 	selectedItem VaultItem
-	choice       string
 	styles       styles.Styles
 	errorMessage string
-	quitting     bool
 	inputs       []textinput.Model
 	focusIndex   int
-	// errorMsg string
+	log *slog.Logger
 }
 
-func NewModel(s3 *s3.Storage) *Model {
+func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
 	ti := textinput.New()
 	ti.EchoMode = textinput.EchoPassword
 	ti.Placeholder = "Введите мастер-пароль"
@@ -49,67 +49,49 @@ func NewModel(s3 *s3.Storage) *Model {
 	ti.SetWidth(30)
 	ti.Focus()
 
+	currentStyles := styles.NewStyles(true)
+	
 	defaultDelegate := list.NewDefaultDelegate()
 
 	vList := list.New([]list.Item{}, defaultDelegate, 0, 0)
+	vList.Styles.Title = currentStyles.Title
+	vList.Styles.PaginationStyle = currentStyles.Pagination
+	vList.Styles.HelpStyle = currentStyles.Help
 	vList.Title = "Загрузка..."
 
 	m := &Model{
 		state:     authState,
 		storage:   s3,
 		passInput: ti,
+		styles: currentStyles,
 		vaultList: vList,
+		log: log,
 	}
-
-	m.UpdateStyles(true)
 
 	return m
 }
 
 func (m *Model) setupInputs() {
 	m.focusIndex = 0
-	
 	m.inputs = make([]textinput.Model, 4)
-	
-	
+
 	for i := range m.inputs {
-			t := textinput.New()
-			t.Width = 30
-			
-			switch i {
-			case 0:
-				t.Placeholder = "Название сервиса"
-				t.Focus()
-			case 1:
-				t.Placeholder = "Логин / Email"
-			case 2:
-				t.Placeholder = "Пароль"
-				// Для поля пароля можно включить скрытие, 
-				// но при создании часто удобнее видеть, что вводишь
-			case 3:
-				
-			}
-			m.inputs[i] = t
+		t := textinput.New()
+		t.SetWidth(30)
+
+		switch i {
+		case 0:
+			t.Placeholder = "Service Name"
+			t.Focus()
+		case 1:
+			t.Placeholder = "Email"
+		case 2:
+			t.Placeholder = "Username"
+		case 3:
+			t.Placeholder = "Password"
 		}
-		
-	m.inputs[0] = textinput.New()
-	m.inputs[0].Placeholder = "Название сервиса"
+		m.inputs[i] = t
+	}
+	
 	m.inputs[0].Focus()
-
-	m.inputs[1] = textinput.New()
-	m.inputs[1].Placeholder = "Имя пользователя"
-
-	m.inputs[2] = textinput.New()
-	m.inputs[2].Placeholder = "Email"
-
-	m.inputs[3] = textinput.New()
-	m.inputs[3].Placeholder = "Пароль (нажмите g для генерации)"
-}
-
-func (m Model) UpdateStyles(isDark bool) {
-	m.styles = styles.NewStyles(isDark)
-	m.vaultList.Styles.Title = m.styles.Title
-	m.vaultList.Styles.PaginationStyle = m.styles.Pagination
-	m.vaultList.Styles.HelpStyle = m.styles.Help
-	m.vaultList.SetDelegate(ItemDelegate{styles: m.styles})
 }
