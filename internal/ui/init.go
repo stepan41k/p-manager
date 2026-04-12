@@ -7,7 +7,6 @@ import (
 
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
-		// tea.EnterAltScreen,
 		textinput.Blink,
 	)
 }
