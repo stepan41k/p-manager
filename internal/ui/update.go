@@ -1,12 +1,21 @@
 package ui
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"time"
+
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"github.com/stepan41k/p-manager/internal/crypto"
+	"github.com/stepan41k/p-manager/internal/lib/logger/sl"
 )
 
 type vaultLoadedMsg []list.Item
+type vaultErrorMsg error
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyPressMsg); ok {
@@ -22,10 +31,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+
 	case vaultLoadedMsg:
 		m.vaultList.SetItems(msg)
 		m.vaultList.Title = "My passwords"
 		m.state = vaultState
+		m.errorMessage = ""
+		return m, nil
+
+	case vaultErrorMsg:
+		m.errorMessage = "Ошибка: " + msg.Error()
 		return m, nil
 	}
 
@@ -53,15 +68,15 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			password := m.passInput.Value()
 
-			//crypto
+			// TODO:crypto
 
 			if password == "secret" {
 				m.state = vaultState
-
-				return m, loadVaultCmd(password)
+				m.masterKey = password
+				return m, m.fetchVaultCmd()
 
 			} else {
-				m.errorMessage = "Неверный пароль!"
+				m.errorMessage = "Incorrent password!"
 				m.passInput.SetValue("")
 				return m, nil
 			}
@@ -126,25 +141,36 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusIndex = (m.focusIndex + 1) % len(m.inputs)
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
-		case "g":
-			if m.focusIndex == 2 {
-				m.inputs[2].SetValue(crypto.GeneratePassword(16))
+		case "up":
+			m.inputs[m.focusIndex].Blur()
+			if m.focusIndex-1 < 0 {
+				m.focusIndex = len(m.inputs) - 1
+			} else {
+				m.focusIndex = (m.focusIndex - 1) % len(m.inputs)
 			}
+			m.inputs[m.focusIndex].Focus()
 			return m, nil
+		case "g":
+			if m.focusIndex == 3 {
+				m.inputs[3].SetValue(crypto.GeneratePassword(32))
+				return m, nil
+			}
+
 		case "enter":
 			if m.focusIndex == len(m.inputs)-1 {
 				newEntry := VaultItem{
 					Resource: m.inputs[0].Value(),
-					Username: m.inputs[1].Value(),
-					Email:    m.inputs[2].Value(),
+					Email:    m.inputs[1].Value(),
+					Username: m.inputs[2].Value(),
 					Password: m.inputs[3].Value(),
 				}
+
 				return m, m.saveAndUploadCmd(newEntry)
 			}
+
 			m.inputs[m.focusIndex].Blur()
 			m.focusIndex++
-			m.inputs[m.focusIndex].Focus()
-			return m, nil
+			return m, m.inputs[m.focusIndex].Focus()
 		}
 	}
 
@@ -155,26 +181,83 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) saveAndUploadCmd(entry VaultItem) tea.Cmd {
 	return func() tea.Msg {
-		// currentItems := m.vaultList.Items()
-		// var allEntries []VaultItem
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
-		// 2. Шифруем (заглушка)
-		// encryptedData := crypto.Encrypt(allEntries, m.masterKey)
+		currentItems := m.vaultList.Items()
+		allEntries := make([]VaultItem, 0, len(currentItems)+1)
 
-		// 3. Отправляем в S3
-		// err := storage.UploadToS3(encryptedData)
+		for _, it := range currentItems {
+			if p, ok := it.(VaultItem); ok {
+				allEntries = append(allEntries, p)
+			}
+		}
 
-		// if err != nil { return errorMsg(err) }
-		return vaultLoadedMsg(m.vaultList.Items()) // Возвращаемся в список
+		allEntries = append(allEntries, entry)
+
+		jsonData, err := json.Marshal(allEntries)
+		if err != nil {
+			m.log.Error("failed to marshal data: %w", sl.Err(err))
+			return vaultErrorMsg(err)
+		}
+
+		encryptedData, err := crypto.Encrypt(jsonData, m.masterKey)
+		if err != nil {
+			m.log.Error("failed to encrypt data: %w", sl.Err(err))
+			return vaultErrorMsg(err)
+		}
+
+		bodyReader := bytes.NewReader(encryptedData)
+
+		err = m.storage.Upload(ctx, "vault.enc", bodyReader)
+		if err != nil {
+			m.log.Error("error with uploading to S3: %w", sl.Err(err))
+			return vaultErrorMsg(err)
+		}
+
+		updatedItems := make([]list.Item, len(allEntries))
+		for i, v := range allEntries {
+			updatedItems[i] = v
+		}
+
+		return vaultLoadedMsg(updatedItems)
 	}
 }
 
-func loadVaultCmd(password string) tea.Cmd {
+func (m *Model) fetchVaultCmd() tea.Cmd {
 	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
 
-		items := []list.Item{
-			VaultItem{Resource: "Github", Email: "example@gmail.com", Username: "stepan", Password: "123456789"},
-			VaultItem{Resource: "Google", Email: "admin@gmail.com", Username: "nickname", Password: "55112233"},
+		body, err := m.storage.Download(ctx, "vault.enc")
+		if err != nil {
+			m.log.Error("error retrieving data from s3 storage: ", sl.Err(err))
+			return vaultLoadedMsg([]list.Item{})
+		}
+
+		defer body.Close()
+
+		encryptedData, err := io.ReadAll(body)
+		if err != nil {
+			m.log.Error("error reading body: ", sl.Err(err))
+			return vaultErrorMsg(err)
+		}
+
+		decryptedData, err := crypto.Decrypt(encryptedData, m.masterKey)
+		if err != nil {
+			m.log.Error("error decrypting data: ", sl.Err(err))
+			return vaultErrorMsg(fmt.Errorf("error decrypting data: check password"))
+		}
+
+		var entries []VaultItem
+		if err := json.Unmarshal(decryptedData, &entries); err != nil {
+			m.log.Error("failed to unmarshal data: ", sl.Err(err))
+			return vaultErrorMsg(err)
+		}
+
+		items := make([]list.Item, len(entries))
+		for i, v := range entries {
+			items[i] = v
 		}
 
 		return vaultLoadedMsg(items)
