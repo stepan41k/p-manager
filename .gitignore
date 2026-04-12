@@ -1,3 +1,4 @@
 .ssh
 /cmd/vault/main
 .env
+debug.log
