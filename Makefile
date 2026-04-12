@@ -4,4 +4,4 @@ lint:
 	golangci-lint run ./...
 
 run:
-	go run ./cmd/vault/main.go
+	clear && go run ./cmd/vault/main.go
