@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"os"
 
@@ -13,21 +14,33 @@ import (
 )
 
 func main() {
-	log := setupLogger()
-	
+	file, err := os.OpenFile("debug.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0O666)
+	if err != nil {
+		os.Exit(1)
+	}
+	defer file.Close()
+	log := setupLogger(file)
+
+	log.Info("attempting to parse config")
 	cfg, err := config.MustLoad()
 	if err != nil {
 		log.Error("failed to load config: %w", sl.Err(err))
 		os.Exit(1)
 	}
-	
-	s3Storage, err := s3.New(context.Background(), cfg.S3Config)
+	log.Info("config parsed")
+
+	log.Info("attempting to initialize s3 storage")
+	s3Storage, err := s3.New(context.Background(), &cfg.S3Config, log)
 	if err != nil {
 		log.Error("failed to initialize s3 storage: %w", sl.Err(err))
 		os.Exit(1)
 	}
+	log.Info("s3 storage initialized")
 	
-	newModel := ui.NewModel(s3Storage)
+	log.Info("access-key", slog.Attr{Key: "access", Value: slog.StringValue(cfg.S3Config.AccessKey)})
+	log.Info("secret-key", slog.Attr{Key: "secret", Value: slog.StringValue(cfg.S3Config.SecretKey)})
+
+	newModel := ui.NewModel(s3Storage, log)
 
 	p := tea.NewProgram(newModel)
 
@@ -37,10 +50,10 @@ func main() {
 	}
 }
 
-func setupLogger() *slog.Logger {
+func setupLogger(w io.Writer) *slog.Logger {
 	var log *slog.Logger
-	
-	log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	
+
+	log = slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
 	return log
 }
