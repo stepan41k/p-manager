@@ -1,6 +1,6 @@
 run:
-     timeout: 5m
-     go: "1.26.0"
+    timeout: 5m
+    go: "1.25.7"
 
 linters-settings:
     govet:
@@ -12,36 +12,37 @@ linters-settings:
             - name: var-naming
             - name: package-comments
     gocritic:
-        enable-tags:
+        enabled-tags:
             - diagnostic
             - style
-            - perfomance
+            - performance
     errcheck:
         check-type-assertions: true
-        ckeck-blank: true
+        check-blank: true
 
 linters:
     disable-all: true
     enable:
-        - errcheck
-        - govet
-        - ineffasign
-        - staticcheck
-        - unused
-        - gocritic
-        - bodyclose
-        - sqlclosecheck
+        - errcheck # unhandled errors
+        - govet # standard
+        - ineffassign # finding unused assignments
+        - staticcheck # checks for logical errors
+        - unused # find unused constants, variables, and functions
+        - gocritic # code quality tips
+        - bodyclose # checks for closing of HTTP body
+        - sqlclosecheck # checks the closure of sql.Rows rows
 
 issues:
-    eclude-rules:
+    exclude-dirs:
+        - internal/grpc/pb
+    exclude-rules:
         - path: _test\.go
           linters:
-            - revive
-            - errcheck
-        
+              - revive
+              - errcheck
+
 output:
     formats:
         - format: colored-line-number
     print-issued-lines: true
     print-linter-name: true
-              
