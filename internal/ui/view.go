@@ -17,13 +17,17 @@ func (m *Model) View() tea.View {
 		content = m.vaultView()
 	case stateDetails:
 		content = m.detailsView()
+	case createState:
+		content = m.createView()
+	default:
+		content = "Неизвестное состояние"
 	}
 
 	return tea.NewView(content)
 }
 
 func (m *Model) authView() string {
-	title := lipgloss.NewStyle().Bold(true).Render("------------------------------- Password Manager -------------------------------------------------")
+	title := m.styles.Title.Bold(true).Render("------------------------------------------------- Password Manager -------------------------------------------------")
 
 	errStr := ""
 	if m.errorMessage != "" {
@@ -39,23 +43,49 @@ func (m *Model) authView() string {
 }
 
 func (m *Model) vaultView() string {
-
 	return m.vaultList.View()
 }
 
 func (m *Model) detailsView() string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205")).Underline(true)
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+    s := m.styles
+
+    drawRow := func(label, value string, valueStyle lipgloss.Style) string {
+        return fmt.Sprintf("%s %s", s.DetailLabel.Render(label), valueStyle.Render(value))
+    }
+
+    content := lipgloss.JoinVertical(
+        lipgloss.Left,
+        s.Title.Render("ДЕТАЛИ АККАУНТА"),
+        "",
+        drawRow("Сервис:", m.selectedItem.Resource, s.DetailValue),
+        drawRow("Логин:", m.selectedItem.Username, s.DetailValue),
+        drawRow("Email:", m.selectedItem.Email, s.DetailValue),
+        drawRow("Пароль:", m.selectedItem.Password, s.DetailKey),
+        "",
+        lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("240")).Render("← esc для возврата | c для копирования"),
+    )
+
+    // Оборачиваем весь контент в рамку карточки
+    return s.Card.Render(content)
+}
+
+func (m *Model) createView() string {
+	var s string
 	
-	s := "\n"
-	s += titleStyle.Render("Детали Аккаунта") + "\n\n"
-	
-	s += labelStyle.Render("Сервис: ") + m.selectedItem.Resource + "\n"
-	s += labelStyle.Render("Логин: ") + m.selectedItem.Username + "\n"
-	s += labelStyle.Render("Email: ") + m.selectedItem.Email + "\n"
-	s += labelStyle.Render("Пароль: ") + m.selectedItem.Password + "\n"
-	
-	s += lipgloss.NewStyle().Italic(true).Render("Esc для возврата")
-	
+	s += m.styles.Title.Bold(true).Foreground(lipgloss.Color("205")).Render("Добавление нового сервиса")
+	s += "\n\n"
+
+	for i := range m.inputs {
+		s += m.inputs[i].View() + "\n"
+	}
+
+	s += "\n"
+	s += lipgloss.NewStyle().Foreground(lipgloss.Color("240")).
+		Render("(стрелки: переход | g: генерация | enter: сохранить | esc: отмена)")
+
+	if m.errorMessage != "" {
+		s += "\n" + m.errorMessage
+	}
+
 	return s
 }
