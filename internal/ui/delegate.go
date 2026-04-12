@@ -10,14 +10,14 @@ import (
 	"github.com/stepan41k/p-manager/internal/ui/styles"
 )
 
-type ItemDelegate struct {
+type itemDelegate struct {
 	styles styles.Styles
 }
 
-func (d ItemDelegate) Height() int                             { return 1 }
-func (d ItemDelegate) Spacing() int                            { return 0 }
-func (d ItemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d ItemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+func (d *itemDelegate) Height() int                             { return 1 }
+func (d *itemDelegate) Spacing() int                            { return 0 }
+func (d *itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d *itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
 	i, ok := listItem.(VaultItem)
 	if !ok {
 		return
