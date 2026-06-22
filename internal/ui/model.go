@@ -19,6 +19,7 @@ const (
 	vaultState                       // Поиск и выбор аккаунта
 	stateDetails                     // Просмотр деталей или добавление нового пароля
 	createState                      // Создание нового пароля
+	updateState
 )
 
 type VaultStorage interface {
