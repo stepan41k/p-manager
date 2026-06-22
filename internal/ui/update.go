@@ -53,6 +53,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateDetails(msg)
 	case createState:
 		return m.updateCreate(msg)
+	case editState:
+		return m.updateEdit(msg)
 	}
 
 	return m, nil
@@ -94,6 +96,10 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "n":
 			m.state = createState
 			m.setupInputs()
+			return m, nil
+		case "e":
+			m.state = editState
+			m.setupEditInputs()
 			return m, nil
 		case "enter":
 			selected := m.vaultList.SelectedItem()
@@ -177,6 +183,94 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.inputs[m.focusIndex], cmd = m.inputs[m.focusIndex].Update(msg)
 	return m, cmd
+}
+
+func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "esc":
+			m.state = vaultState
+			return m, nil
+		case "tab", "down":
+			m.inputs[m.focusIndex].Blur()
+			m.focusIndex = (m.focusIndex + 1) % len(m.inputs)
+			m.inputs[m.focusIndex].Focus()
+			return m, nil
+		case "up":
+			m.inputs[m.focusIndex].Blur()
+			if m.focusIndex-1 < 0 {
+				m.focusIndex = len(m.inputs) - 1
+			} else {
+				m.focusIndex = (m.focusIndex - 1) % len(m.inputs)
+			}
+			m.inputs[m.focusIndex].Focus()
+			return m, nil
+		case "ctrl+g":
+			if m.focusIndex == 3 {
+				m.inputs[3].SetValue(crypto.GeneratePassword(32))
+				return m, nil
+			}
+		case "enter":
+			if m.focusIndex == len(m.inputs)-1 {
+				updated := VaultItem{
+					Resource: m.inputs[0].Value(),
+					Email:    m.inputs[1].Value(),
+					Username: m.inputs[2].Value(),
+					Password: m.inputs[3].Value(),
+				}
+
+				m.errorMessage = "Updating at Cloud Storage..."
+				return m, m.updateAndUploadCmd(updated)
+			}
+			m.focusIndex++
+			return m, m.inputs[m.focusIndex].Focus()
+		}
+	}
+	m.inputs[m.focusIndex], cmd = m.inputs[m.focusIndex].Update(msg)
+	return m, cmd
+}
+
+func (m *Model) updateAndUploadCmd(updatedEntry VaultItem) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// 1. Получаем все айтемы
+		items := m.vaultList.Items()
+		allEntries := make([]VaultItem, len(items))
+
+		selectedIndex := m.vaultList.Index()
+
+		for i, it := range items {
+			if i == selectedIndex {
+				// ЗАМЕНЯЕМ старую запись на обновленную
+				allEntries[i] = updatedEntry
+			} else {
+				allEntries[i] = it.(VaultItem)
+			}
+		}
+
+		// 2. Шифруем и отправляем (как при создании)
+		jsonData, _ := json.Marshal(allEntries)
+		encrypted, err := crypto.Encrypt(jsonData, m.masterKey)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+
+		err = m.storage.Upload(ctx, "vault.enc", bytes.NewReader(encrypted))
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+
+		// Возвращаем обновленный список для TUI
+		newItems := make([]list.Item, len(allEntries))
+		for i, v := range allEntries {
+			newItems[i] = v
+		}
+		return vaultLoadedMsg(newItems)
+	}
 }
 
 func (m *Model) saveAndUploadCmd(entry VaultItem) tea.Cmd {
