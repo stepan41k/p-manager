@@ -150,7 +150,7 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
-		case "g":
+		case "ctrl+g":
 			if m.focusIndex == 3 {
 				m.inputs[3].SetValue(crypto.GeneratePassword(32))
 				return m, nil
