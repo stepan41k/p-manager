@@ -1,3 +1,0 @@
-DROP TABLE IF EXISTS vault_metadata;
-
-DROP TABLE IF EXISTS entries;
