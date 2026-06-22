@@ -19,7 +19,7 @@ const (
 	vaultState                       // Поиск и выбор аккаунта
 	stateDetails                     // Просмотр деталей или добавление нового пароля
 	createState                      // Создание нового пароля
-	updateState
+	editState
 )
 
 type VaultStorage interface {
@@ -95,4 +95,28 @@ func (m *Model) setupInputs() {
 	}
 	
 	m.inputs[0].Focus()
+}
+
+func (m *Model) setupEditInputs() {
+    m.focusIndex = 0
+    m.inputs = make([]textinput.Model, 4)
+
+    values := []string{
+        m.selectedItem.Resource,
+        m.selectedItem.Email,
+        m.selectedItem.Username,
+        m.selectedItem.Password,
+    }
+    placeholders := []string{"Service name", "Email", "Username", "Password"}
+
+    for i := range m.inputs {
+        t := textinput.New()
+        t.SetWidth(30)
+        t.Placeholder = placeholders[i]
+        t.SetValue(values[i]) // ПРЕДЗАПОЛНЕНИЕ
+        if i == 0 {
+            t.Focus()
+        }
+        m.inputs[i] = t
+    }
 }
