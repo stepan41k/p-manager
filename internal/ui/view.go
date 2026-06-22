@@ -81,7 +81,7 @@ func (m *Model) createView() string {
 
 	s += "\n"
 	s += lipgloss.NewStyle().Foreground(lipgloss.Color("240")).
-		Render("(стрелки: переход | g: генерация | enter: сохранить | esc: отмена)")
+		Render("(стрелки: переход | ctrl+g: генерация | enter: сохранить | esc: отмена)")
 
 	if m.errorMessage != "" {
 		s += "\n" + m.errorMessage
