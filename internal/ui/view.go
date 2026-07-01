@@ -49,7 +49,7 @@ func (m *Model) authView() string {
 		Width(m.width).
 		Align(lipgloss.Center).
 		Bold(true).
-		Foreground(lipgloss.Color("62")).
+		Foreground(lipgloss.Color("230")).
 		Render(strings.Repeat("─", 5) + titleText + strings.Repeat("─", 5))
 
 	content := lipgloss.JoinVertical(
@@ -80,54 +80,48 @@ func (m *Model) detailsView() string {
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
-		s.Title.Render("ACCOUNT DETAILS"),
-		"",
+		s.Title.Copy().
+			Foreground(lipgloss.Color("205")).
+			MarginBottom(1).
+			Render("── " + "ACCOUNT DETAILS" + " ──"),
 		drawRow("Service:", m.selectedItem.Resource, s.DetailValue),
 		drawRow("Login:", m.selectedItem.Username, s.DetailValue),
 		drawRow("Email:", m.selectedItem.Email, s.DetailValue),
 		drawRow("Password:", m.selectedItem.Password, s.DetailKey),
 		"",
-		lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("240")).Render("← esc для возврата | c для копирования"),
+		lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("240")).Render("esc: back | c: copy"),
 	)
-	return s.Card.Render(content)
+
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, s.Card.Render(content))
 }
 
-func (m *Model) createView() string {
-	var s string
+func (m *Model) createView() string { return m.renderForm("NEW ENTRY") }
+func (m *Model) editView()   string { return m.renderForm("EDITING") }
 
-	s += "Добавление нового сервиса"
-	s += "\n\n"
+func (m *Model) renderForm(title string) string {
+	s := m.styles
+	
+	header := s.Title.Copy().
+		Foreground(lipgloss.Color("205")).
+		MarginBottom(1).
+		Render("── " + title + " ──")
 
+	var inputViews []string
 	for i := range m.inputs {
-		s += m.inputs[i].View() + "\n"
+		prefix := "  "
+		if i == m.focusIndex {
+			prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> ")
+		}
+		inputViews = append(inputViews, prefix + m.inputs[i].View())
 	}
+	inputs := lipgloss.JoinVertical(lipgloss.Left, inputViews...)
 
-	s += "\n"
-	s += lipgloss.NewStyle().Foreground(lipgloss.Color("240")).
-		Render("(стрелки: переход | ctrl+g: генерация | enter: сохранить | esc: отмена)")
+	help := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).
+		MarginTop(1).
+		Italic(true).
+		Render("(↑/↓: move | ctrl+g: generate | enter: save | esc: back)")
 
-	if m.errorMessage != "" {
-		s += "\n" + m.errorMessage
-	}
-
-	return s
-}
-
-func (m *Model) editView() string {
-	s := m.styles.Title.Bold(true).Foreground(lipgloss.Color("205")).Render("Обновление сервиса")
-	s += "\n\n"
-
-	for i := range m.inputs {
-		s += m.inputs[i].View() + "\n"
-	}
-
-	s += "\n"
-	s += lipgloss.NewStyle().Foreground(lipgloss.Color("240")).
-		Render("(стрелки: переход | ctrl+g: генерация | enter: сохранить | esc: отмена)")
-
-	if m.errorMessage != "" {
-		s += "\n" + m.errorMessage
-	}
-
-	return s
+	formContent := lipgloss.JoinVertical(lipgloss.Left, header, inputs, help)
+	
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, s.Card.Render(formContent))
 }
