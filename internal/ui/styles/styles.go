@@ -21,7 +21,12 @@ type Styles struct {
 
 func NewStyles(darkBG bool) Styles {
 	var s Styles
-	s.Title = lipgloss.NewStyle().MarginLeft(2)
+	s.Title = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("230")). 
+		Padding(0, 1).                     
+		MarginLeft(2).                     
+		Bold(true)
+
 	s.Item = lipgloss.NewStyle().PaddingLeft(4)
 	s.SelectedItem = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("120"))
 	s.Pagination = list.DefaultStyles(darkBG).PaginationStyle.PaddingLeft(4)
