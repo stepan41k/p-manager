@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -9,6 +10,10 @@ import (
 
 func (m *Model) View() tea.View {
 	var content string
+
+	if m.width == 0 || m.height == 0 {
+		return tea.NewView("")
+	}
 
 	switch m.state {
 	case authState:
@@ -22,26 +27,44 @@ func (m *Model) View() tea.View {
 	case editState:
 		content = m.editView()
 	default:
-		content = "Неизвестное состояние"
+		content = "Unknown State"
 	}
 
-	return tea.NewView(content)
+	v := tea.NewView(lipgloss.Place(
+		m.width, m.height,
+		lipgloss.Left, lipgloss.Top,
+		content,
+		lipgloss.WithWhitespaceChars(" "),
+	))
+
+	v.AltScreen = true
+
+	return v
 }
 
 func (m *Model) authView() string {
-	title := m.styles.Title.Bold(true).Render("------------------------------------------------- Password Manager -------------------------------------------------")
+	titleText := " PASSWORD MANAGER "
+	
+	header := lipgloss.NewStyle().
+		Width(m.width).
+		Align(lipgloss.Center).
+		Bold(true).
+		Foreground(lipgloss.Color("62")).
+		Render(strings.Repeat("─", 5) + titleText + strings.Repeat("─", 5))
 
-	errStr := ""
+	content := lipgloss.JoinVertical(
+		lipgloss.Center,
+		header,
+		"",
+		"Enter master-password:",
+		m.passInput.View(),
+	)
+
 	if m.errorMessage != "" {
-		errStr += lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render("\n" + m.errorMessage)
+		content = lipgloss.JoinVertical(lipgloss.Center, content, "", lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(m.errorMessage))
 	}
 
-	return fmt.Sprintf(
-		"\n%s\n\n%s\n%s\n",
-		title,
-		m.passInput.View(),
-		errStr,
-	)
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
 
 func (m *Model) vaultView() string {
@@ -57,7 +80,7 @@ func (m *Model) detailsView() string {
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
-		s.Title.Render("ДЕТАЛИ АККАУНТА"),
+		s.Title.Render("ACCOUNT DETAILS"),
 		"",
 		drawRow("Service:", m.selectedItem.Resource, s.DetailValue),
 		drawRow("Login:", m.selectedItem.Username, s.DetailValue),
@@ -66,15 +89,13 @@ func (m *Model) detailsView() string {
 		"",
 		lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("240")).Render("← esc для возврата | c для копирования"),
 	)
-
-	// Оборачиваем весь контент в рамку карточки
 	return s.Card.Render(content)
 }
 
 func (m *Model) createView() string {
 	var s string
 
-	s += m.styles.Title.Bold(true).Foreground(lipgloss.Color("205")).Render("Добавление нового сервиса")
+	s += "Добавление нового сервиса"
 	s += "\n\n"
 
 	for i := range m.inputs {
