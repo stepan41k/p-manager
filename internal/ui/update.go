@@ -18,15 +18,14 @@ type vaultLoadedMsg []list.Item
 type vaultErrorMsg error
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyPressMsg); ok {
-		if key.String() == "ctrl+c" {
-			return m, tea.Quit
-		}
-	}
-
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+
 		m.vaultList.SetSize(msg.Width, msg.Height)
+
+		return m, nil
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
@@ -35,14 +34,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case vaultLoadedMsg:
 		m.vaultList.SetItems(msg)
 		m.vaultList.Title = "My passwords"
+		m.vaultList.Styles.Title = m.styles.Title
 		m.state = vaultState
 		m.errorMessage = ""
 		return m, nil
 
 	case vaultErrorMsg:
-		m.errorMessage = "Ошибка: " + msg.Error()
+		m.errorMessage = "Error: " + msg.Error()
 		return m, nil
 	}
+
 
 	switch m.state {
 	case authState:
@@ -74,7 +75,7 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			if password == "secret" {
 				m.state = vaultState
-				m.masterKey = password
+				m.masterKey = []byte(password)
 				return m, m.fetchVaultCmd()
 
 			} else {
@@ -93,12 +94,18 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
-		case "n":
+		case "ctrl+n":
 			m.state = createState
 			m.setupInputs()
 			return m, nil
-		case "e":
-			m.state = editState
+		case "ctrl+e":
+			selected := m.vaultList.SelectedItem()
+
+			if item, ok := selected.(VaultItem); ok {
+				m.selectedItem = item
+				m.state = editState
+			}
+
 			m.setupEditInputs()
 			return m, nil
 		case "enter":
@@ -126,7 +133,7 @@ func (m *Model) updateDetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc", "backspace":
 			m.state = vaultState
 			return m, nil
-		case "c":
+		case "ctrl+c":
 			//TODO: implement copying into buffer
 			return m, nil
 		}
@@ -213,19 +220,15 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case "enter":
-			if m.focusIndex == len(m.inputs)-1 {
-				updated := VaultItem{
-					Resource: m.inputs[0].Value(),
-					Email:    m.inputs[1].Value(),
-					Username: m.inputs[2].Value(),
-					Password: m.inputs[3].Value(),
-				}
-
-				m.errorMessage = "Updating at Cloud Storage..."
-				return m, m.updateAndUploadCmd(updated)
+			updated := VaultItem{
+				Resource: m.inputs[0].Value(),
+				Email:    m.inputs[1].Value(),
+				Username: m.inputs[2].Value(),
+				Password: m.inputs[3].Value(),
 			}
-			m.focusIndex++
-			return m, m.inputs[m.focusIndex].Focus()
+
+			m.errorMessage = "Updating at Cloud Storage..."
+			return m, m.updateAndUploadCmd(updated)
 		}
 	}
 	m.inputs[m.focusIndex], cmd = m.inputs[m.focusIndex].Update(msg)
@@ -237,7 +240,6 @@ func (m *Model) updateAndUploadCmd(updatedEntry VaultItem) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		// 1. Получаем все айтемы
 		items := m.vaultList.Items()
 		allEntries := make([]VaultItem, len(items))
 
@@ -245,16 +247,14 @@ func (m *Model) updateAndUploadCmd(updatedEntry VaultItem) tea.Cmd {
 
 		for i, it := range items {
 			if i == selectedIndex {
-				// ЗАМЕНЯЕМ старую запись на обновленную
 				allEntries[i] = updatedEntry
 			} else {
 				allEntries[i] = it.(VaultItem)
 			}
 		}
 
-		// 2. Шифруем и отправляем (как при создании)
 		jsonData, _ := json.Marshal(allEntries)
-		encrypted, err := crypto.Encrypt(jsonData, m.masterKey)
+		encrypted, err := crypto.Encrypt(jsonData, string(m.masterKey))
 		if err != nil {
 			return vaultErrorMsg(err)
 		}
@@ -264,7 +264,6 @@ func (m *Model) updateAndUploadCmd(updatedEntry VaultItem) tea.Cmd {
 			return vaultErrorMsg(err)
 		}
 
-		// Возвращаем обновленный список для TUI
 		newItems := make([]list.Item, len(allEntries))
 		for i, v := range allEntries {
 			newItems[i] = v
@@ -295,7 +294,7 @@ func (m *Model) saveAndUploadCmd(entry VaultItem) tea.Cmd {
 			return vaultErrorMsg(err)
 		}
 
-		encryptedData, err := crypto.Encrypt(jsonData, m.masterKey)
+		encryptedData, err := crypto.Encrypt(jsonData, string(m.masterKey))
 		if err != nil {
 			m.log.Error("failed to encrypt data: %w", sl.Err(err))
 			return vaultErrorMsg(err)
@@ -337,7 +336,7 @@ func (m *Model) fetchVaultCmd() tea.Cmd {
 			return vaultErrorMsg(err)
 		}
 
-		decryptedData, err := crypto.Decrypt(encryptedData, m.masterKey)
+		decryptedData, err := crypto.Decrypt(encryptedData, string(m.masterKey))
 		if err != nil {
 			m.log.Error("error decrypting data: ", sl.Err(err))
 			return vaultErrorMsg(fmt.Errorf("error decrypting data: check password"))
