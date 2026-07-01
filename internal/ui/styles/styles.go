@@ -38,7 +38,7 @@ func NewStyles(darkBG bool) Styles {
 		BorderForeground(lipgloss.Color("170")).
 		Padding(1, 2).
 		Margin(1, 2).
-		Width(50)
+		Width(80)
 
 	s.DetailLabel = lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
