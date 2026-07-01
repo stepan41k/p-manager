@@ -29,8 +29,11 @@ type VaultStorage interface {
 }
 
 type Model struct {
+	width int
+	height int
+	
 	storage      VaultStorage
-	masterKey    string
+	masterKey    []byte
 	state        sessionState
 	passInput    textinput.Model
 	vaultList    list.Model
@@ -45,9 +48,9 @@ type Model struct {
 func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
 	ti := textinput.New()
 	ti.EchoMode = textinput.EchoPassword
-	ti.Placeholder = "Введите мастер-пароль"
+	ti.Placeholder = ""
 	ti.EchoCharacter = '*'
-	ti.SetWidth(30)
+	ti.SetWidth(40)
 	ti.Focus()
 
 	currentStyles := styles.NewStyles(true)
@@ -58,7 +61,7 @@ func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
 	vList.Styles.Title = currentStyles.Title
 	vList.Styles.PaginationStyle = currentStyles.Pagination
 	vList.Styles.HelpStyle = currentStyles.Help
-	vList.Title = "Загрузка..."
+	vList.Title = "Loading..."
 
 	m := &Model{
 		state:     authState,
@@ -111,9 +114,9 @@ func (m *Model) setupEditInputs() {
 
     for i := range m.inputs {
         t := textinput.New()
-        t.SetWidth(30)
+        t.SetWidth(40)
         t.Placeholder = placeholders[i]
-        t.SetValue(values[i]) // ПРЕДЗАПОЛНЕНИЕ
+        t.SetValue(values[i])
         if i == 0 {
             t.Focus()
         }
