@@ -79,23 +79,20 @@ func (m *Model) setupInputs() {
 	m.focusIndex = 0
 	m.inputs = make([]textinput.Model, 4)
 
-	for i := range m.inputs {
-		t := textinput.New()
-		t.SetWidth(30)
+	placeholders := []string{"Service", "Email", "Username", "Password"}
 
-		switch i {
-		case 0:
-			t.Placeholder = "Service Name"
-			t.Focus()
-		case 1:
-			t.Placeholder = "Email"
-		case 2:
-			t.Placeholder = "Username"
-		case 3:
-			t.Placeholder = "Password"
-		}
-		m.inputs[i] = t
-	}
+    for i := range m.inputs {
+        t := textinput.New()
+        t.SetWidth(40)
+
+        t.Prompt = ""
+        
+        t.Placeholder = placeholders[i]
+        if i == 0 {
+            t.Focus()
+        }
+        m.inputs[i] = t
+    }
 	
 	m.inputs[0].Focus()
 }
@@ -110,11 +107,15 @@ func (m *Model) setupEditInputs() {
         m.selectedItem.Username,
         m.selectedItem.Password,
     }
-    placeholders := []string{"Service name", "Email", "Username", "Password"}
+    
+    placeholders := []string{"Service", "Email", "Username", "Password"}
 
     for i := range m.inputs {
         t := textinput.New()
         t.SetWidth(40)
+
+        t.Prompt = ""
+        
         t.Placeholder = placeholders[i]
         t.SetValue(values[i])
         if i == 0 {
