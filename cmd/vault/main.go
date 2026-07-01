@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stepan41k/p-manager/internal/config"
@@ -36,9 +37,6 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("s3 storage initialized")
-	
-	log.Info("access-key", slog.Attr{Key: "access", Value: slog.StringValue(cfg.S3Config.AccessKey)})
-	log.Info("secret-key", slog.Attr{Key: "secret", Value: slog.StringValue(cfg.S3Config.SecretKey)})
 
 	newModel := ui.NewModel(s3Storage, log)
 
@@ -48,6 +46,14 @@ func main() {
 		log.Error("failed to run program: %w", sl.Err(err))
 		os.Exit(1)
 	}
+
+	if err = file.Truncate(0); err != nil {
+		log.Error("failed to truncate log file: %w", sl.Err(err))
+	}
+	
+	c := exec.Command("clear")
+    c.Stdout = os.Stdout
+    _ = c.Run()
 }
 
 func setupLogger(w io.Writer) *slog.Logger {
