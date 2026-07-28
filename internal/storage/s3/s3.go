@@ -43,7 +43,7 @@ func New(ctx context.Context, cfg *config.S3Config, log *slog.Logger) (*Storage,
 }
 
 func (s *Storage) Upload(ctx context.Context, key string, body io.Reader) error {
-	s.log.Info("Загрузка объекта %s в бакет %s", key, s.bucket)
+	s.log.Info("upload object %s into bucket %s", key, s.bucket)
 
 	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(s.bucket),
