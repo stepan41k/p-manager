@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 
+	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 
@@ -39,6 +40,10 @@ type Model struct {
 	vaultList    list.Model
 	selectedItem VaultItem
 	styles       styles.Styles
+
+	keys KeyMap
+	help help.Model
+	
 	errorMessage string
 	inputs       []textinput.Model
 	focusIndex   int
@@ -63,10 +68,17 @@ func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
 	vList.Styles.HelpStyle = currentStyles.Help
 	vList.Title = "Loading..."
 
+	keys := NewKeyMap()
+	help := help.New()
+
 	m := &Model{
 		state:     authState,
 		storage:   s3,
 		passInput: ti,
+
+		keys: keys,
+		help: help,
+		
 		styles: currentStyles,
 		vaultList: vList,
 		log: log,
