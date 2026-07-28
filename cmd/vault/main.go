@@ -15,11 +15,12 @@ import (
 )
 
 func main() {
-	file, err := os.OpenFile("debug.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0O666)
+	file, err := os.OpenFile("debug.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 	if err != nil {
 		os.Exit(1)
 	}
 	defer file.Close()
+
 	log := setupLogger(file)
 
 	log.Info("attempting to parse config")
@@ -50,10 +51,10 @@ func main() {
 	if err = file.Truncate(0); err != nil {
 		log.Error("failed to truncate log file: %w", sl.Err(err))
 	}
-	
+
 	c := exec.Command("clear")
-    c.Stdout = os.Stdout
-    _ = c.Run()
+	c.Stdout = os.Stdout
+	_ = c.Run()
 }
 
 func setupLogger(w io.Writer) *slog.Logger {
