@@ -15,9 +15,10 @@ type Config struct {
 type S3Config struct {
 	AccessKey string
 	SecretKey string
-	Region    string	`env:"REGION"`
-	Endpoint  string	`env:"ENDPOINT"`
-	Bucket    string	`env:"BUCKET"`
+	Region    string `env:"REGION"`
+	Endpoint  string `env:"ENDPOINT"`
+	Bucket    string `env:"BUCKET"`
+	SWord     string `env:"SWORD"`
 }
 
 func MustLoad() (*Config, error) {
@@ -38,7 +39,7 @@ func MustLoad() (*Config, error) {
 	if err := cleanenv.ReadEnv(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
-	
+
 	if cfg.S3Config.AccessKey == "" || cfg.S3Config.Bucket == "" || cfg.S3Config.Endpoint == "" || cfg.S3Config.Region == "" || cfg.S3Config.SecretKey == "" {
 		return nil, fmt.Errorf("empty field in config")
 	}
