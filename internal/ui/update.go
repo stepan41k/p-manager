@@ -8,6 +8,7 @@ import (
 	"io"
 	"time"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"github.com/stepan41k/p-manager/internal/crypto"
@@ -67,8 +68,8 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "enter":
+		switch {
+		case key.Matches(msg, m.keys.Auth.Enter):
 			password := m.passInput.Value()
 
 			// TODO:crypto
