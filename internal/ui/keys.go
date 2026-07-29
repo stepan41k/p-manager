@@ -19,12 +19,12 @@ type authKeyMap struct {
 type vaultKeyMap struct {
 	Create  key.Binding
 	Details key.Binding
+	Edit key.Binding
 	Quit    key.Binding
 }
 
 type detailsKeyMap struct {
 	Back key.Binding
-	Edit key.Binding
 	Copy key.Binding
 }
 
@@ -43,13 +43,13 @@ func NewKeyMap() KeyMap {
 			Quit:  key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl + c", "exit")),
 		},
 		Vault: vaultKeyMap{
-			Create:  key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "create new vault")),
+			Create:  key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "create new vault")),
 			Details: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "show details")),
+			Edit: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit")),
 			Quit:    key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl + c", "exit")),
 		},
 		Details: detailsKeyMap{
 			Back: key.NewBinding(key.WithKeys("esc", "backspace"), key.WithHelp("esc", "back")),
-			Edit: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit")),
 			Copy: key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "copy")),
 		},
 		Form: formKeyMap{
@@ -63,5 +63,5 @@ func NewKeyMap() KeyMap {
 }
 
 func (k authKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Enter, k.Quit} }
-func (k detailsKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Back, k.Edit, k.Copy} }
+func (k detailsKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Back, k.Copy} }
 func (k formKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Submit, k.Generate, k.Cancel} }
