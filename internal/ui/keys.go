@@ -45,8 +45,8 @@ func NewKeyMap() KeyMap {
 		Vault: vaultKeyMap{
 			Create:  key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "create new vault")),
 			Details: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "show details")),
-			Edit: key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit")),
-			Quit:    key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl + c", "exit")),
+			Edit: key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("ctrl+e", "edit")),
+			Quit:    key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "exit")),
 		},
 		Details: detailsKeyMap{
 			Back: key.NewBinding(key.WithKeys("esc", "backspace"), key.WithHelp("esc", "back")),

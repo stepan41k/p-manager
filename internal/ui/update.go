@@ -130,11 +130,11 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) updateDetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "esc", "backspace":
+		switch {
+		case key.Matches(msg, m.keys.Details.Back):
 			m.state = vaultState
 			return m, nil
-		case "ctrl+c":
+		case key.Matches(msg, m.keys.Details.Copy):
 			//TODO: implement copying into buffer
 			return m, nil
 		}
@@ -146,16 +146,16 @@ func (m *Model) updateDetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "esc":
+		switch {
+		case key.Matches(msg, m.keys.Form.Cancel):
 			m.state = vaultState
 			return m, nil
-		case "tab", "down":
+		case key.Matches(msg, m.keys.Form.Next):
 			m.inputs[m.focusIndex].Blur()
 			m.focusIndex = (m.focusIndex + 1) % len(m.inputs)
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
-		case "up":
+		case key.Matches(msg, m.keys.Form.Previous):
 			m.inputs[m.focusIndex].Blur()
 			if m.focusIndex-1 < 0 {
 				m.focusIndex = len(m.inputs) - 1
@@ -164,13 +164,13 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
-		case "ctrl+g":
+		case key.Matches(msg, m.keys.Form.Generate):
 			if m.focusIndex == 3 {
 				m.inputs[3].SetValue(crypto.GeneratePassword(32))
 				return m, nil
 			}
 
-		case "enter":
+		case key.Matches(msg, m.keys.Form.Submit):
 			if m.focusIndex == len(m.inputs)-1 {
 				newEntry := VaultItem{
 					Resource: m.inputs[0].Value(),
