@@ -94,12 +94,12 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "ctrl+n":
+		switch {
+		case key.Matches(msg, m.keys.Vault.Create):
 			m.state = createState
 			m.setupInputs()
 			return m, nil
-		case "ctrl+e":
+		case key.Matches(msg, m.keys.Vault.Edit):
 			selected := m.vaultList.SelectedItem()
 
 			if item, ok := selected.(VaultItem); ok {
@@ -109,7 +109,7 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.setupEditInputs()
 			return m, nil
-		case "enter":
+		case key.Matches(msg, m.keys.Vault.Details):
 			selected := m.vaultList.SelectedItem()
 
 			if item, ok := selected.(VaultItem); ok {
