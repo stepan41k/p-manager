@@ -79,5 +79,13 @@ func NewKeyMap() KeyMap {
 }
 
 func (k authKeyMap) ShortHelp() []key.Binding    { return []key.Binding{k.Enter, k.Quit} }
+func (k vaultKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Create, k.Details, k.Edit, k.Quit} }
 func (k detailsKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Back, k.Copy} }
-func (k createKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Submit, k.Generate, k.Cancel} }
+func (k createKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate} }
+func (k editKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate} }
+
+func (k authKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
+func (k vaultKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
+func (k detailsKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
+func (k createKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
+func (k editKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
