@@ -18,9 +18,10 @@ type sessionState int
 const (
 	authState    sessionState = iota // Ввод мастер-пароля
 	vaultState                       // Поиск и выбор аккаунта
-	stateDetails                     // Просмотр деталей или добавление нового пароля
+	detailsState                   // Просмотр деталей или добавление нового пароля
 	createState                      // Создание нового пароля
 	editState
+	deleteState
 )
 
 type VaultStorage interface {

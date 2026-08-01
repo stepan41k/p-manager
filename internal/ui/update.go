@@ -51,7 +51,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateAuth(msg)
 	case vaultState:
 		return m.updateVault(msg)
-	case stateDetails:
+	case detailsState:
 		return m.updateDetails(msg)
 	case createState:
 		return m.updateCreate(msg)
@@ -114,7 +114,7 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			if item, ok := selected.(VaultItem); ok {
 				m.selectedItem = item
-				m.state = stateDetails
+				m.state = detailsState
 			}
 
 			return m, nil

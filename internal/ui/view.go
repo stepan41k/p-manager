@@ -23,7 +23,7 @@ func (m *Model) View() tea.View {
 	case vaultState:
 		content = m.vaultView()
 		footer = m.help.View(m.keys.Vault)
-	case stateDetails:
+	case detailsState:
 		content = m.detailsView()
 		footer = m.help.View(m.keys.Details)
 	case createState:
