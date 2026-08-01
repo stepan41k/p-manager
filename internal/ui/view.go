@@ -10,6 +10,7 @@ import (
 
 func (m *Model) View() tea.View {
 	var content string
+	var footer string
 
 	if m.width == 0 || m.height == 0 {
 		return tea.NewView("")
@@ -18,22 +19,33 @@ func (m *Model) View() tea.View {
 	switch m.state {
 	case authState:
 		content = m.authView()
+		footer = m.help.View(m.keys.Auth)
 	case vaultState:
 		content = m.vaultView()
+		footer = m.help.View(m.keys.Vault)
 	case stateDetails:
 		content = m.detailsView()
+		footer = m.help.View(m.keys.Details)
 	case createState:
 		content = m.createView()
+		footer = m.help.View(m.keys.Create)
 	case editState:
 		content = m.editView()
+		footer = m.help.View(m.keys.Edit)
 	default:
 		content = "Unknown State"
 	}
 
+	combined := lipgloss.JoinVertical(lipgloss.Left,
+		content,
+		"\n",
+		footer,
+	)
+
 	v := tea.NewView(lipgloss.Place(
 		m.width, m.height,
 		lipgloss.Left, lipgloss.Top,
-		content,
+		combined,
 		lipgloss.WithWhitespaceChars(" "),
 	))
 
