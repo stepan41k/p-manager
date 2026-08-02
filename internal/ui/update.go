@@ -45,7 +45,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-
 	switch m.state {
 	case authState:
 		return m.updateAuth(msg)
@@ -57,6 +56,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateCreate(msg)
 	case editState:
 		return m.updateEdit(msg)
+	case deleteState:
+		return m.updateDelete(msg)
 	}
 
 	return m, nil
@@ -118,7 +119,15 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			return m, nil
+
+		case key.Matches(msg, m.keys.Vault.Delete):
+			if item, ok := m.vaultList.SelectedItem().(VaultItem); ok {
+				m.selectedItem = item
+				m.state = deleteState
+				return m, nil
+			}
 		}
+
 	}
 
 	var cmd tea.Cmd
@@ -234,6 +243,62 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	m.inputs[m.focusIndex], cmd = m.inputs[m.focusIndex].Update(msg)
 	return m, cmd
+}
+
+func (m *Model) updateDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch {
+		case key.Matches(msg, m.keys.Delete.Yes):
+			m.errorMessage = "Delete from S3..."
+
+			return m, m.deleteAndUploadCmd()
+		case key.Matches(msg, m.keys.Delete.No):
+			m.state = vaultState
+
+			return m, nil
+		}
+	}
+
+	return m, nil
+}
+
+func (m *Model) deleteAndUploadCmd() tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+		defer cancel()
+
+		idx := m.vaultList.Index()
+		items := m.vaultList.Items()
+
+		var newEntries []VaultItem
+		for i, it := range items {
+			if i == idx {
+				continue
+			}
+
+			newEntries = append(newEntries, it.(VaultItem))
+		}
+
+		jsonData, _ := json.Marshal(newEntries)
+		encrypted, err := crypto.Encrypt(jsonData, string(m.masterKey))
+		if err != nil {
+			return 	vaultErrorMsg(err)
+		}
+
+		body := bytes.NewReader(encrypted)
+		err = m.storage.Upload(ctx, "vault.enc", body)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+
+		updatedList := make([]list.Item, len(newEntries))
+		for i, v := range newEntries {
+			updatedList[i] = v
+		}
+
+		return vaultLoadedMsg(updatedList)
+	}
 }
 
 func (m *Model) updateAndUploadCmd(updatedEntry VaultItem) tea.Cmd {
