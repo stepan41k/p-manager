@@ -22,7 +22,17 @@ func (m *Model) View() tea.View {
 		footer = m.help.View(m.keys.Auth)
 	case vaultState:
 		content = m.vaultView()
-		footer = m.help.View(m.keys.Vault)
+
+		v := tea.NewView(lipgloss.Place(
+			m.width, m.height,
+			lipgloss.Left, lipgloss.Top,
+			content,
+			lipgloss.WithWhitespaceChars(" "),
+		))
+
+		v.AltScreen = true
+
+		return v
 	case detailsState:
 		content = m.detailsView()
 		footer = m.help.View(m.keys.Details)
@@ -32,11 +42,15 @@ func (m *Model) View() tea.View {
 	case editState:
 		content = m.editView()
 		footer = m.help.View(m.keys.Edit)
+	case deleteState:
+		content = m.deleteView()
+		footer = m.help.View(m.keys.Delete)
 	default:
 		content = "Unknown State"
 	}
 
-	combined := lipgloss.JoinVertical(lipgloss.Left,
+	fullDisplay := lipgloss.JoinVertical(
+		lipgloss.Center,
 		content,
 		"\n",
 		footer,
@@ -44,8 +58,8 @@ func (m *Model) View() tea.View {
 
 	v := tea.NewView(lipgloss.Place(
 		m.width, m.height,
-		lipgloss.Left, lipgloss.Top,
-		combined,
+		lipgloss.Center, lipgloss.Center,
+		fullDisplay,
 		lipgloss.WithWhitespaceChars(" "),
 	))
 
@@ -56,7 +70,7 @@ func (m *Model) View() tea.View {
 
 func (m *Model) authView() string {
 	titleText := " PASSWORD MANAGER "
-	
+
 	header := lipgloss.NewStyle().
 		Width(m.width).
 		Align(lipgloss.Center).
@@ -95,7 +109,7 @@ func (m *Model) detailsView() string {
 		s.Title.Copy().
 			Foreground(lipgloss.Color("205")).
 			MarginBottom(1).
-			Render("── " + "ACCOUNT DETAILS" + " ──"),
+			Render("── "+"ACCOUNT DETAILS"+" ──"),
 		drawRow("Service:", m.selectedItem.Resource, s.DetailValue),
 		drawRow("Login:", m.selectedItem.Username, s.DetailValue),
 		drawRow("Email:", m.selectedItem.Email, s.DetailValue),
@@ -108,12 +122,12 @@ func (m *Model) detailsView() string {
 }
 
 func (m *Model) createView() string { return m.renderForm("NEW ENTRY") }
-func (m *Model) editView()   string { return m.renderForm("EDITING") }
+func (m *Model) editView() string   { return m.renderForm("EDITING") }
 
 func (m *Model) renderForm(title string) string {
 	s := m.styles
-	
-	header := s.Title.Copy().
+
+	header := s.Title.
 		Foreground(lipgloss.Color("205")).
 		MarginBottom(1).
 		Render("── " + title + " ──")
@@ -124,16 +138,27 @@ func (m *Model) renderForm(title string) string {
 		if i == m.focusIndex {
 			prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> ")
 		}
-		inputViews = append(inputViews, prefix + m.inputs[i].View())
+		inputViews = append(inputViews, prefix+m.inputs[i].View())
 	}
 	inputs := lipgloss.JoinVertical(lipgloss.Left, inputViews...)
 
-	help := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).
-		MarginTop(1).
-		Italic(true).
-		Render("(↑/↓: move | ctrl+g: generate | enter: save | esc: back)")
+	formContent := lipgloss.JoinVertical(lipgloss.Left, header, inputs)
 
-	formContent := lipgloss.JoinVertical(lipgloss.Left, header, inputs, help)
-	
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, s.Card.Render(formContent))
+	return s.Card.Render(formContent)
+}
+
+func (m *Model) deleteView() string {
+	s := m.styles
+
+	header := s.Title.
+		Foreground(lipgloss.Color("205")).
+		MarginBottom(1).
+		Render("── " + "DELETE ENTRY"  + " ──")
+
+	question := fmt.Sprintf("Are you sure you want to remove the password for %s?",
+		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205")).Render(m.selectedItem.Resource))
+
+	formContent := lipgloss.JoinVertical(lipgloss.Left,	header,	question)
+
+	return s.Card.Render(formContent)
 }
