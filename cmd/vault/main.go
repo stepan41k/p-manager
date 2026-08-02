@@ -43,7 +43,7 @@ func main() {
 
 	p := tea.NewProgram(newModel)
 
-	if _, err := p.Run(); err != nil {
+	if _, err = p.Run(); err != nil {
 		log.Error("failed to run program: %w", sl.Err(err))
 		os.Exit(1)
 	}
@@ -58,9 +58,7 @@ func main() {
 }
 
 func setupLogger(w io.Writer) *slog.Logger {
-	var log *slog.Logger
-
-	log = slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	log := slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	return log
 }
