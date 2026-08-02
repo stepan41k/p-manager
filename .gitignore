@@ -2,3 +2,4 @@
 /cmd/vault/main
 .env
 debug.log
+pmanager
