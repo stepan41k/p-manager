@@ -1,0 +1,48 @@
+run:
+    timeout: 5m
+    go: "1.25.7"
+
+linters-settings:
+    govet:
+        enable:
+            - shadow
+    revive:
+        rules:
+            - name: exported
+            - name: var-naming
+            - name: package-comments
+    gocritic:
+        enabled-tags:
+            - diagnostic
+            - style
+            - performance
+    errcheck:
+        check-type-assertions: true
+        check-blank: true
+
+linters:
+    disable-all: true
+    enable:
+        - errcheck # unhandled errors
+        - govet # standard
+        - ineffassign # finding unused assignments
+        - staticcheck # checks for logical errors
+        - unused # find unused constants, variables, and functions
+        - gocritic # code quality tips
+        - bodyclose # checks for closing of HTTP body
+        - sqlclosecheck # checks the closure of sql.Rows rows
+
+issues:
+    exclude-dirs:
+        - internal/grpc/pb
+    exclude-rules:
+        - path: _test\.go
+          linters:
+              - revive
+              - errcheck
+
+output:
+    formats:
+        - format: colored-line-number
+    print-issued-lines: true
+    print-linter-name: true
