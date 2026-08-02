@@ -10,6 +10,7 @@ type KeyMap struct {
 	Details detailsKeyMap
 	Create  createKeyMap
 	Edit    editKeyMap
+	Delete deleteKeyMap
 }
 
 type authKeyMap struct {
@@ -21,6 +22,7 @@ type vaultKeyMap struct {
 	Create  key.Binding
 	Details key.Binding
 	Edit    key.Binding
+	Delete key.Binding
 	Quit    key.Binding
 }
 
@@ -45,6 +47,11 @@ type editKeyMap struct {
 	Generate key.Binding
 }
 
+type deleteKeyMap struct {
+	Yes key.Binding
+	No key.Binding
+}
+
 func NewKeyMap() KeyMap {
 	return KeyMap{
 		Auth: authKeyMap{
@@ -55,6 +62,7 @@ func NewKeyMap() KeyMap {
 			Create:  key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "create new vault")),
 			Details: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "show details")),
 			Edit:    key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("ctrl+e", "edit")),
+			Delete:	key.NewBinding(key.WithKeys("ctrl+d"), key.WithHelp("ctrl+d", "delete")),
 			Quit:    key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "exit")),
 		},
 		Details: detailsKeyMap{
@@ -75,6 +83,10 @@ func NewKeyMap() KeyMap {
 			Previous: key.NewBinding(key.WithKeys("shift+tab", "up"), key.WithHelp("shift+tab", "up")),
 			Generate: key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("ctrl+g", "generate")),
 		},
+		Delete: deleteKeyMap{
+			Yes: key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "yes")),
+			No: key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "no")),
+		},
 	}
 }
 
@@ -83,9 +95,11 @@ func (k vaultKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Create,
 func (k detailsKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Back, k.Copy} }
 func (k createKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate} }
 func (k editKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate} }
+func (k deleteKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Yes, k.No} }
 
 func (k authKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
 func (k vaultKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
 func (k detailsKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
 func (k createKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
 func (k editKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
+func (k deleteKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
