@@ -106,7 +106,7 @@ func (m *Model) detailsView() string {
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
-		s.Title.Copy().
+		s.Title.
 			Foreground(lipgloss.Color("205")).
 			MarginBottom(1).
 			Render("── "+"ACCOUNT DETAILS"+" ──"),
