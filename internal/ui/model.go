@@ -111,6 +111,7 @@ func (m *Model) SetupInitialInputs() {
 	
 	for i := range m.inputs {
 		t := textinput.New()
+		t.Prompt = ""
 		t.SetWidth(40)
 		t.Placeholder = labels[i]
 		if i >= 4 {
