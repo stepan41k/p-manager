@@ -20,10 +20,17 @@ type Storage struct {
 }
 
 func New(ctx context.Context, cfg *config.S3Config, log *slog.Logger) (*Storage, error) {
+	accessKey, secretKey, err := GetSecrets()
+	if err != nil {
+		return nil, fmt.Errorf("could not get secrets from keyring: %w", err)
+	}
+
+	staticProvider := credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")
+
 	sConfig, err := sconfig.LoadDefaultConfig(ctx,
 		sconfig.WithRegion(cfg.Region),
 		sconfig.WithLogger(s3SlogAdapter{log: log}),
-		sconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, "")),
+		sconfig.WithCredentialsProvider(staticProvider),
 	)
 
 	if err != nil {
