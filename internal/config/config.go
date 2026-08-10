@@ -1,64 +1,48 @@
 package config
 
 import (
-	"fmt"
-
-	"github.com/ilyakaznacheev/cleanenv"
-	"github.com/joho/godotenv"
-	"github.com/zalando/go-keyring"
+	"encoding/json"
+	"os"
+	"path/filepath"
 )
 
 type Config struct {
-	S3Config S3Config
+	UserConfig UserConfig
+	S3Config   S3Config
+}
+
+type UserConfig struct {
+	Email string `json:"email"`
 }
 
 type S3Config struct {
-	AccessKey string
-	SecretKey string
-	Region    string `env:"REGION"`
-	Endpoint  string `env:"ENDPOINT"`
-	Bucket    string `env:"BUCKET"`
-	SWord     string `env:"SWORD"`
+	Region   string `json:"region"`
+	Endpoint string `json:"endpoint"`
+	Bucket   string `json:"bucket"`
+}
+
+func GetConfigPath() string {
+	dir, _ := os.UserConfigDir()
+	return filepath.Join(dir, "p-manager", "config.json")
+}
+
+func SaveConfig(cfg Config) error {
+	path := GetConfigPath()
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
+	data, _ := json.MarshalIndent(cfg, "", "  ")
+	return os.WriteFile(path, data, 0600)
 }
 
 func MustLoad() (*Config, error) {
-	if err := godotenv.Load(); err != nil {
-		return nil, fmt.Errorf("failed to load .env file: %w", err)
+	data, err := os.ReadFile(GetConfigPath())
+	if err != nil {
+		return nil, err
 	}
-
 	var cfg Config
-
-	accessKey, secretKey, err := GetS3Credentials()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load keys: %w", err)
-	}
-
-	cfg.S3Config.AccessKey = accessKey
-	cfg.S3Config.SecretKey = secretKey
-
-	if err := cleanenv.ReadEnv(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to read config: %w", err)
-	}
-
-	if cfg.S3Config.AccessKey == "" || cfg.S3Config.Bucket == "" || cfg.S3Config.Endpoint == "" || cfg.S3Config.Region == "" || cfg.S3Config.SecretKey == "" {
-		return nil, fmt.Errorf("empty field in config")
-	}
-
-	return &cfg, nil
+	err = json.Unmarshal(data, &cfg)
+	return &cfg, err
 }
 
-func GetS3Credentials() (accessKey, secretKey string, err error) {
-	service := "vault-app"
+// func GetS3Credentials() (accessKey, secretKey string, err error) {
 
-	accessKey, err = keyring.Get(service, "access_key")
-	if err != nil {
-		return "", "", fmt.Errorf("access key not found in system: %w", err)
-	}
-
-	secretKey, err = keyring.Get(service, "secret_key")
-	if err != nil {
-		return "", "", fmt.Errorf("secret key not found in system: %w", err)
-	}
-
-	return accessKey, secretKey, nil
-}
+// }
