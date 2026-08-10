@@ -17,6 +17,9 @@ func (m *Model) View() tea.View {
 	}
 
 	switch m.state {
+	case setupState:
+		content = m.renderForm("INITIAL SETUP")
+		footer = m.help.View(m.keys.Setup)
 	case authState:
 		content = m.authView()
 		footer = m.help.View(m.keys.Auth)
@@ -153,12 +156,12 @@ func (m *Model) deleteView() string {
 	header := s.Title.
 		Foreground(lipgloss.Color("205")).
 		MarginBottom(1).
-		Render("── " + "DELETE ENTRY"  + " ──")
+		Render("── " + "DELETE ENTRY" + " ──")
 
 	question := fmt.Sprintf("Are you sure you want to remove the password for %s?",
 		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205")).Render(m.selectedItem.Resource))
 
-	formContent := lipgloss.JoinVertical(lipgloss.Left,	header,	question)
+	formContent := lipgloss.JoinVertical(lipgloss.Left, header, question)
 
 	return s.Card.Render(formContent)
 }
