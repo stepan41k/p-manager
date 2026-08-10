@@ -24,24 +24,30 @@ func main() {
 	log := setupLogger(file)
 
 	log.Info("attempting to parse config")
+
 	cfg, err := config.MustLoad()
+
+	var initialModel *ui.Model
 	if err != nil {
-		log.Error("failed to load config: %w", sl.Err(err))
-		os.Exit(1)
+		// log.Error("failed to load config: %w", sl.Err(err))
+		// os.Exit(1)
+		initialModel.SetupInitialInputs() 
+
+	} else {
+		log.Info("attempting to initialize s3 storage")
+		s3Storage, err := s3.New(context.Background(), &cfg.S3Config, log)
+		if err != nil {
+			log.Error("failed to initialize s3 storage: %w", sl.Err(err))
+			os.Exit(1)
+		}
+		log.Info("s3 storage initialized")
+
+		initialModel = ui.NewModel(s3Storage, log)
 	}
+
 	log.Info("config parsed")
 
-	log.Info("attempting to initialize s3 storage")
-	s3Storage, err := s3.New(context.Background(), &cfg.S3Config, log)
-	if err != nil {
-		log.Error("failed to initialize s3 storage: %w", sl.Err(err))
-		os.Exit(1)
-	}
-	log.Info("s3 storage initialized")
-
-	newModel := ui.NewModel(s3Storage, log)
-
-	p := tea.NewProgram(newModel)
+	p := tea.NewProgram(initialModel)
 
 	if _, err = p.Run(); err != nil {
 		log.Error("failed to run program: %w", sl.Err(err))
