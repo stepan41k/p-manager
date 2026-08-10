@@ -7,8 +7,8 @@ import (
 )
 
 func SendOTPEmail(code string) error {
-	from := os.Getenv("SENDER_EMAIL")
-		pass := os.Getenv("SENDER_PASSWORD")
+		from := os.Getenv("SMTP_FROM")
+		pass := os.Getenv("SMTP_PASS")
 		to := os.Getenv("TARGET_EMAIL")
 		host := os.Getenv("SMTP_HOST")
 		port := os.Getenv("SMTP_PORT")
