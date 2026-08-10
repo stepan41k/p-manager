@@ -7,8 +7,8 @@ import (
 )
 
 type Config struct {
-	UserConfig UserConfig
-	S3Config   S3Config
+	UserConfig UserConfig `json:"UserConfig"`
+	S3Config   S3Config   `json:"S3Config"`
 }
 
 type UserConfig struct {
@@ -34,15 +34,21 @@ func SaveConfig(cfg Config) error {
 }
 
 func MustLoad() (*Config, error) {
-	data, err := os.ReadFile(GetConfigPath())
+	path := GetConfigPath()
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, err
+	}
+
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
+
 	var cfg Config
-	err = json.Unmarshal(data, &cfg)
+	if err = json.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
 	return &cfg, err
 }
-
-// func GetS3Credentials() (accessKey, secretKey string, err error) {
-
-// }
