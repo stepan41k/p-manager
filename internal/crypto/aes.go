@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-func Encrypt(plaintext []byte, password string) ([]byte, error) {
+func Encrypt(plaintext []byte, password []byte) ([]byte, error) {
 	salt := make([]byte, 16)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func Encrypt(plaintext []byte, password string) ([]byte, error) {
 	return res, nil
 }
 
-func Decrypt(data []byte, password string) ([]byte, error) {
+func Decrypt(data []byte, password []byte) ([]byte, error) {
 	if len(data) < 16 + 12 {
 		return nil, errors.New("invalid data length")
 	}
