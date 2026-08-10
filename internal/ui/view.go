@@ -145,7 +145,15 @@ func (m *Model) renderForm(title string) string {
 	}
 	inputs := lipgloss.JoinVertical(lipgloss.Left, inputViews...)
 
-	formContent := lipgloss.JoinVertical(lipgloss.Left, header, inputs)
+	status := ""
+    if m.errorMessage != "" {
+        status = lipgloss.NewStyle().
+            Foreground(lipgloss.Color("11")).
+            MarginTop(1).
+            Render(m.errorMessage)
+    }
+	
+	formContent := lipgloss.JoinVertical(lipgloss.Left, header, inputs, status)
 
 	return s.Card.Render(formContent)
 }
