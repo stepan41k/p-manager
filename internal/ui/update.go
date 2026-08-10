@@ -11,12 +11,24 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
+	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/crypto"
+	"github.com/stepan41k/p-manager/internal/lib/email"
 	"github.com/stepan41k/p-manager/internal/lib/logger/sl"
+
+	"github.com/zalando/go-keyring"
+
+	ss3 "github.com/stepan41k/p-manager/internal/storage/s3"
 )
 
 type vaultLoadedMsg []list.Item
 type vaultErrorMsg error
+type otpEmailSentMsg struct{}
+type setupFinishedMsg struct {
+	Storage  VaultStorage
+	Salt     []byte
+	Verifier []byte
+}
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -32,6 +44,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+	case setupFinishedMsg:
+		m.storage = msg.Storage
+		m.salt = msg.Salt
+		m.verifier = msg.Verifier
+
+		m.state = authState
+		m.errorMessage = "Setup complete! Please login."
+		m.passInput.Focus() 
+		return m, nil
+
 	case vaultLoadedMsg:
 		m.vaultList.SetItems(msg)
 		m.vaultList.Title = "My passwords"
@@ -46,8 +68,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch m.state {
+	case setupState:
+		return m.updateSetup(msg)
 	case authState:
 		return m.updateAuth(msg)
+	case otpState:
+		return m.updateOTP(msg)
 	case vaultState:
 		return m.updateVault(msg)
 	case detailsState:
@@ -64,6 +90,85 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 }
 
+func (m *Model) updateSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch {
+		case key.Matches(msg, m.keys.Setup.Enter):
+			if m.focusIndex == len(m.inputs)-1 {
+				m.errorMessage = "Saving configuration..."
+
+				return m, m.runSetupCmd()
+			}
+
+			m.inputs[m.focusIndex].Blur()
+			m.focusIndex++
+			return m, m.inputs[m.focusIndex].Focus()
+
+		case key.Matches(msg, m.keys.Setup.Quit):
+			return m, tea.Quit
+		}
+	}
+
+	m.inputs[m.focusIndex], cmd = m.inputs[m.focusIndex].Update(msg)
+	return m, cmd
+}
+
+func (m *Model) runSetupCmd() tea.Cmd {
+	return func() tea.Msg {
+		reg, endp, buck := m.inputs[0].Value(), m.inputs[1].Value(), m.inputs[2].Value()
+		accKey, secKey := m.inputs[3].Value(), m.inputs[4].Value()
+		email, master := m.inputs[5].Value(), m.inputs[6].Value()
+
+		keyring.Set("vault-app", "access_key", accKey)
+		keyring.Set("vault-app", "secret_key", secKey)
+
+		cfg := config.Config{
+			UserConfig: config.UserConfig{
+				Email: email,
+			},
+			S3Config: config.S3Config{
+				Region:   reg,
+				Endpoint: endp,
+				Bucket:   buck,
+			},
+		}
+
+		storage, err := ss3.New(context.Background(), &cfg.S3Config, m.log)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+
+		salt, _ := crypto.GenerateSalt(16)
+		masterKey := crypto.DeriveKey(master, salt)
+		verifier, _ := crypto.Encrypt([]byte("OK"), masterKey)
+
+		meta := struct {
+			Salt     []byte `json:"salt"`
+			Verifier []byte `json:"verifier"`
+		}{Salt: salt, Verifier: verifier}
+
+		metaData, _ := json.Marshal(meta)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		err = m.storage.Upload(ctx, "meta.json", bytes.NewReader(metaData))
+		if err != nil {
+			m.log.Warn("failed to upload metadata")
+			return vaultErrorMsg(err)
+		}
+
+		return setupFinishedMsg{
+			Storage:  storage,
+			Salt:     salt,
+			Verifier: verifier,
+		}
+	}
+}
+
 func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -73,22 +178,63 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Auth.Enter):
 			password := m.passInput.Value()
 
-			// TODO:crypto
+			derivedKey := crypto.DeriveKey(password, m.salt)
 
-			if password == "secret" {
-				m.state = vaultState
-				m.masterKey = []byte(password)
-				return m, m.fetchVaultCmd()
-
-			} else {
-				m.errorMessage = "Incorrent password!"
+			if err := crypto.VerifyMasterKey(derivedKey, m.verifier); err != nil {
+				m.errorMessage = "invalid master password"
 				m.passInput.SetValue("")
 				return m, nil
+			}
+
+			m.masterKey = derivedKey
+
+			code, _ := crypto.GenerateOTP()
+
+			m.expectedOTPHash = crypto.HashOTP(code)
+
+			m.errorMessage = "Sending code to email..."
+
+			return m, func() tea.Msg {
+				sendErr := email.SendOTPEmail(code)
+				if sendErr != nil {
+					return vaultErrorMsg(sendErr)
+				}
+				return otpEmailSentMsg{}
 			}
 		}
 	}
 
 	m.passInput, cmd = m.passInput.Update(msg)
+	return m, cmd
+}
+
+func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch {
+		case key.Matches(msg, m.keys.OTP.Enter):
+			inputHash := crypto.HashOTP(m.otpInput.Value())
+
+			if inputHash == m.expectedOTPHash {
+				m.state = vaultState
+				m.expectedOTPHash = [32]byte{}
+				m.errorMessage = "Loading data..."
+
+				return m, m.fetchVaultCmd()
+			} else {
+				m.errorMessage = "Invalid code!"
+				m.otpInput.SetValue("")
+				return m, nil
+			}
+		case key.Matches(msg, m.keys.OTP.Quit):
+			m.state = authState
+			return m, nil
+		}
+	}
+
+	m.otpInput, cmd = m.otpInput.Update(msg)
 	return m, cmd
 }
 
@@ -265,9 +411,6 @@ func (m *Model) updateDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) deleteAndUploadCmd() tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
-		defer cancel()
-
 		idx := m.vaultList.Index()
 		items := m.vaultList.Items()
 
@@ -281,10 +424,13 @@ func (m *Model) deleteAndUploadCmd() tea.Cmd {
 		}
 
 		jsonData, _ := json.Marshal(newEntries)
-		encrypted, err := crypto.Encrypt(jsonData, string(m.masterKey))
+		encrypted, err := crypto.Encrypt(jsonData, m.masterKey)
 		if err != nil {
-			return 	vaultErrorMsg(err)
+			return vaultErrorMsg(err)
 		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
 		body := bytes.NewReader(encrypted)
 		err = m.storage.Upload(ctx, "vault.enc", body)
@@ -303,9 +449,6 @@ func (m *Model) deleteAndUploadCmd() tea.Cmd {
 
 func (m *Model) updateAndUploadCmd(updatedEntry VaultItem) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
 		items := m.vaultList.Items()
 		allEntries := make([]VaultItem, len(items))
 
@@ -320,10 +463,13 @@ func (m *Model) updateAndUploadCmd(updatedEntry VaultItem) tea.Cmd {
 		}
 
 		jsonData, _ := json.Marshal(allEntries)
-		encrypted, err := crypto.Encrypt(jsonData, string(m.masterKey))
+		encrypted, err := crypto.Encrypt(jsonData, m.masterKey)
 		if err != nil {
 			return vaultErrorMsg(err)
 		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
 		err = m.storage.Upload(ctx, "vault.enc", bytes.NewReader(encrypted))
 		if err != nil {
@@ -340,9 +486,6 @@ func (m *Model) updateAndUploadCmd(updatedEntry VaultItem) tea.Cmd {
 
 func (m *Model) saveAndUploadCmd(entry VaultItem) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
 		currentItems := m.vaultList.Items()
 		allEntries := make([]VaultItem, 0, len(currentItems)+1)
 
@@ -360,13 +503,16 @@ func (m *Model) saveAndUploadCmd(entry VaultItem) tea.Cmd {
 			return vaultErrorMsg(err)
 		}
 
-		encryptedData, err := crypto.Encrypt(jsonData, string(m.masterKey))
+		encryptedData, err := crypto.Encrypt(jsonData, m.masterKey)
 		if err != nil {
 			m.log.Error("failed to encrypt data: %w", sl.Err(err))
 			return vaultErrorMsg(err)
 		}
 
 		bodyReader := bytes.NewReader(encryptedData)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
 		err = m.storage.Upload(ctx, "vault.enc", bodyReader)
 		if err != nil {
@@ -402,7 +548,7 @@ func (m *Model) fetchVaultCmd() tea.Cmd {
 			return vaultErrorMsg(err)
 		}
 
-		decryptedData, err := crypto.Decrypt(encryptedData, string(m.masterKey))
+		decryptedData, err := crypto.Decrypt(encryptedData, m.masterKey)
 		if err != nil {
 			m.log.Error("error decrypting data: ", sl.Err(err))
 			return vaultErrorMsg(fmt.Errorf("error decrypting data: check password"))
