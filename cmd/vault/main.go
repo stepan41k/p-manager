@@ -31,8 +31,8 @@ func main() {
 	if err != nil {
 		// log.Error("failed to load config: %w", sl.Err(err))
 		// os.Exit(1)
+		initialModel = ui.NewModel(nil, log)
 		initialModel.SetupInitialInputs() 
-
 	} else {
 		log.Info("attempting to initialize s3 storage")
 		s3Storage, err := s3.New(context.Background(), &cfg.S3Config, log)
