@@ -16,12 +16,14 @@ import (
 type sessionState int
 
 const (
-	authState    sessionState = iota // Ввод мастер-пароля
+	setupState   sessionState = iota // Первичная настройка
+	authState                        // Ввод мастер-пароля
+	otpState                         // Ввод OTP
 	vaultState                       // Поиск и выбор аккаунта
-	detailsState                   // Просмотр деталей или добавление нового пароля
+	detailsState                     // Просмотр деталей или добавление нового пароля
 	createState                      // Создание нового пароля
-	editState
-	deleteState
+	editState                        // Редактирование записи
+	deleteState                      // Удаление записи
 )
 
 type VaultStorage interface {
@@ -31,24 +33,29 @@ type VaultStorage interface {
 }
 
 type Model struct {
-	width int
+	width  int
 	height int
-	
+
 	storage      VaultStorage
-	masterKey    []byte
 	state        sessionState
 	passInput    textinput.Model
+	otpInput     textinput.Model
 	vaultList    list.Model
 	selectedItem VaultItem
 	styles       styles.Styles
 
+	masterKey       []byte
+	salt            []byte
+	verifier        []byte
+	expectedOTPHash [32]byte
+
 	keys KeyMap
 	help help.Model
-	
+
 	errorMessage string
 	inputs       []textinput.Model
 	focusIndex   int
-	log *slog.Logger
+	log          *slog.Logger
 }
 
 func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
@@ -60,7 +67,7 @@ func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
 	ti.Focus()
 
 	currentStyles := styles.NewStyles(true)
-	
+
 	defaultDelegate := list.NewDefaultDelegate()
 
 	vList := list.New([]list.Item{}, defaultDelegate, 0, 0)
@@ -72,20 +79,46 @@ func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
 	keys := NewKeyMap()
 	help := help.New()
 
+	var startState sessionState
+	
+	if s3 == nil {
+		startState = setupState
+	} else {
+		startState = authState
+	}
+	
 	m := &Model{
-		state:     authState,
+		state:     startState,
 		storage:   s3,
 		passInput: ti,
 
 		keys: keys,
 		help: help,
-		
-		styles: currentStyles,
+
+		styles:    currentStyles,
 		vaultList: vList,
-		log: log,
+		log:       log,
 	}
 
 	return m
+}
+
+func (m *Model) SetupInitialInputs() {
+	m.focusIndex = 0
+	m.inputs = make([]textinput.Model, 7)
+	
+	labels := []string{"S3 Region", "S3 Endpoint", "S3 Bucket", "AWS Access Key", "AWS Secret Key", "Your Email", "Master Password"}
+	
+	for i := range m.inputs {
+		t := textinput.New()
+		t.SetWidth(40)
+		t.Placeholder = labels[i]
+		if i >= 4 {
+			t.EchoMode = textinput.EchoPassword
+		}
+		m.inputs[i] = t
+	}
+	m.inputs[0].Focus()
 }
 
 func (m *Model) setupInputs() {
@@ -94,46 +127,56 @@ func (m *Model) setupInputs() {
 
 	placeholders := []string{"Service", "Email", "Username", "Password"}
 
-    for i := range m.inputs {
-        t := textinput.New()
-        t.SetWidth(40)
+	for i := range m.inputs {
+		t := textinput.New()
+		t.SetWidth(40)
 
-        t.Prompt = ""
-        
-        t.Placeholder = placeholders[i]
-        if i == 0 {
-            t.Focus()
-        }
-        m.inputs[i] = t
-    }
-	
+		t.Prompt = ""
+
+		t.Placeholder = placeholders[i]
+		if i == 0 {
+			t.Focus()
+		}
+		m.inputs[i] = t
+	}
+
 	m.inputs[0].Focus()
 }
 
+func (m *Model) setupOTPInput() {
+	ti := textinput.New()
+	ti.Placeholder = "******"
+	ti.CharLimit = 6
+	ti.Focus()
+	ti.SetWidth(10)
+	ti.Prompt = "Код: "
+	m.otpInput = ti
+}
+
 func (m *Model) setupEditInputs() {
-    m.focusIndex = 0
-    m.inputs = make([]textinput.Model, 4)
+	m.focusIndex = 0
+	m.inputs = make([]textinput.Model, 4)
 
-    values := []string{
-        m.selectedItem.Resource,
-        m.selectedItem.Email,
-        m.selectedItem.Username,
-        m.selectedItem.Password,
-    }
-    
-    placeholders := []string{"Service", "Email", "Username", "Password"}
+	values := []string{
+		m.selectedItem.Resource,
+		m.selectedItem.Email,
+		m.selectedItem.Username,
+		m.selectedItem.Password,
+	}
 
-    for i := range m.inputs {
-        t := textinput.New()
-        t.SetWidth(40)
+	placeholders := []string{"Service", "Email", "Username", "Password"}
 
-        t.Prompt = ""
-        
-        t.Placeholder = placeholders[i]
-        t.SetValue(values[i])
-        if i == 0 {
-            t.Focus()
-        }
-        m.inputs[i] = t
-    }
+	for i := range m.inputs {
+		t := textinput.New()
+		t.SetWidth(40)
+
+		t.Prompt = ""
+
+		t.Placeholder = placeholders[i]
+		t.SetValue(values[i])
+		if i == 0 {
+			t.Focus()
+		}
+		m.inputs[i] = t
+	}
 }
