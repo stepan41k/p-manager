@@ -17,6 +17,8 @@ type KeyMap struct {
 
 type setupKeyMap struct {
 	Enter key.Binding
+	Next     key.Binding
+	Previous key.Binding
 	Quit  key.Binding
 }
 
@@ -68,6 +70,8 @@ func NewKeyMap() KeyMap {
 	return KeyMap{
 		Setup: setupKeyMap{
 			Enter: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "sign in")),
+			Next:     key.NewBinding(key.WithKeys("tab", "down"), key.WithHelp("↓ | tab", "down")),
+			Previous: key.NewBinding(key.WithKeys("shift+tab", "up"), key.WithHelp("↑ | shift+tab", "up")),
 			Quit:  key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl + c", "exit")),
 		},
 		Auth: authKeyMap{
@@ -110,7 +114,7 @@ func NewKeyMap() KeyMap {
 	}
 }
 
-func (k setupKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Enter, k.Quit} }
+func (k setupKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Enter, k.Next, k.Previous, k.Quit} }
 func (k authKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Enter, k.Quit} }
 func (k otpKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Enter, k.Quit} }
 func (k vaultKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Create, k.Details, k.Edit, k.Quit} }
