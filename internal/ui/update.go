@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -50,8 +51,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.verifier = msg.Verifier
 
 		m.state = authState
+
 		m.errorMessage = "Setup complete! Please login."
-		m.passInput.Focus() 
+		m.passInput.Focus()
+
 		return m, nil
 
 	case vaultLoadedMsg:
@@ -99,13 +102,29 @@ func (m *Model) updateSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Setup.Enter):
 			if m.focusIndex == len(m.inputs)-1 {
 				m.errorMessage = "Saving configuration..."
-
+				m.log.Info("call setup cmd", slog.Int("ind", m.focusIndex))
 				return m, m.runSetupCmd()
 			}
 
 			m.inputs[m.focusIndex].Blur()
 			m.focusIndex++
+			m.log.Info("index", slog.Int("ind", m.focusIndex))
 			return m, m.inputs[m.focusIndex].Focus()
+
+		case key.Matches(msg, m.keys.Setup.Next):
+			m.inputs[m.focusIndex].Blur()
+			m.focusIndex = (m.focusIndex + 1) % len(m.inputs)
+			m.inputs[m.focusIndex].Focus()
+			return m, nil
+		case key.Matches(msg, m.keys.Setup.Previous):
+			m.inputs[m.focusIndex].Blur()
+			if m.focusIndex-1 < 0 {
+				m.focusIndex = len(m.inputs) - 1
+			} else {
+				m.focusIndex = (m.focusIndex - 1) % len(m.inputs)
+			}
+			m.inputs[m.focusIndex].Focus()
+			return m, nil
 
 		case key.Matches(msg, m.keys.Setup.Quit):
 			return m, tea.Quit
@@ -122,8 +141,8 @@ func (m *Model) runSetupCmd() tea.Cmd {
 		accKey, secKey := m.inputs[3].Value(), m.inputs[4].Value()
 		email, master := m.inputs[5].Value(), m.inputs[6].Value()
 
-		keyring.Set("vault-app", "access_key", accKey)
-		keyring.Set("vault-app", "secret_key", secKey)
+		keyring.Set("p-manager", "access_key", accKey)
+		keyring.Set("p-manager", "secret_key", secKey)
 
 		cfg := config.Config{
 			UserConfig: config.UserConfig{
@@ -134,6 +153,10 @@ func (m *Model) runSetupCmd() tea.Cmd {
 				Endpoint: endp,
 				Bucket:   buck,
 			},
+		}
+
+		if err := config.SaveConfig(cfg); err != nil {
+			return vaultErrorMsg(err)
 		}
 
 		storage, err := ss3.New(context.Background(), &cfg.S3Config, m.log)
@@ -155,7 +178,7 @@ func (m *Model) runSetupCmd() tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		err = m.storage.Upload(ctx, "meta.json", bytes.NewReader(metaData))
+		err = storage.Upload(ctx, "meta.json", bytes.NewReader(metaData))
 		if err != nil {
 			m.log.Warn("failed to upload metadata")
 			return vaultErrorMsg(err)
