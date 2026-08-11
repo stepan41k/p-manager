@@ -9,6 +9,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 
+	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/storage/s3"
 	"github.com/stepan41k/p-manager/internal/ui/styles"
 )
@@ -43,6 +44,7 @@ type Model struct {
 	vaultList    list.Model
 	selectedItem VaultItem
 	styles       styles.Styles
+	config       *config.Config
 
 	masterKey       []byte
 	salt            []byte
@@ -58,7 +60,7 @@ type Model struct {
 	log          *slog.Logger
 }
 
-func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
+func NewModel(s3 *s3.Storage, cfg *config.Config, salt, verifier []byte, log *slog.Logger) *Model {
 	ti := textinput.New()
 	ti.EchoMode = textinput.EchoPassword
 	ti.Placeholder = ""
@@ -80,13 +82,13 @@ func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
 	help := help.New()
 
 	var startState sessionState
-	
+
 	if s3 == nil {
 		startState = setupState
 	} else {
 		startState = authState
 	}
-	
+
 	m := &Model{
 		state:     startState,
 		storage:   s3,
@@ -94,6 +96,11 @@ func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
 
 		keys: keys,
 		help: help,
+
+		config: cfg,
+		
+		salt:     salt,
+		verifier: verifier,
 
 		styles:    currentStyles,
 		vaultList: vList,
@@ -105,17 +112,22 @@ func NewModel(s3 *s3.Storage, log *slog.Logger) *Model {
 
 func (m *Model) SetupInitialInputs() {
 	m.focusIndex = 0
-	m.inputs = make([]textinput.Model, 7)
-	
-	labels := []string{"S3 Region", "S3 Endpoint", "S3 Bucket", "AWS Access Key", "AWS Secret Key", "Your Email", "Master Password"}
-	
+	m.inputs = make([]textinput.Model, 11)
+
+	labels := []string{
+		"S3 Region", "S3 Endpoint", "S3 Bucket", "AWS Access Key", "AWS Secret Key",
+		"SMTP Host (smtp.gmail.com)", "SMTP Port (587)", "Sender Email", "Sender Password",
+		"Target Email (Your Email)", "Set Master Password",
+	}
+
 	for i := range m.inputs {
 		t := textinput.New()
 		t.Prompt = ""
 		t.SetWidth(40)
 		t.Placeholder = labels[i]
-		if i >= 4 {
+		if i == 4 || i == 8 || i == 10 {
 			t.EchoMode = textinput.EchoPassword
+			t.EchoCharacter = '*'
 		}
 		m.inputs[i] = t
 	}
