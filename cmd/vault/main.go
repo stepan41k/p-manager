@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -29,20 +30,35 @@ func main() {
 
 	var initialModel *ui.Model
 	if err != nil {
-		// log.Error("failed to load config: %w", sl.Err(err))
-		// os.Exit(1)
-		initialModel = ui.NewModel(nil, log)
-		initialModel.SetupInitialInputs() 
-	} else {
-		log.Info("attempting to initialize s3 storage")
-		s3Storage, err := s3.New(context.Background(), &cfg.S3Config, log)
-		if err != nil {
-			log.Error("failed to initialize s3 storage: %w", sl.Err(err))
+		if errors.Is(err, config.ErrNotExists) {
+			initialModel = ui.NewModel(nil, cfg, nil, nil, log)
+			initialModel.SetupInitialInputs()
+		} else {
+			log.Error("failed to load config:", sl.Err(err))
 			os.Exit(1)
 		}
+	} else {
+		log.Info("attempting to initialize s3 storage")
+
+		s3Storage, err := s3.New(context.Background(), &cfg.S3Config, log)
+		if err != nil {
+			log.Error("failed to initialize s3 storage:", sl.Err(err))
+			os.Exit(1)
+		}
+
 		log.Info("s3 storage initialized")
 
-		initialModel = ui.NewModel(s3Storage, log)
+		log.Warn("download meta data")
+
+		meta, err := s3Storage.DownloadMeta(context.TODO())
+		if err != nil {
+			log.Error("failed to download metadata from S3:", sl.Err(err))
+			os.Exit(1)
+		}
+
+		log.Info("meta data downloaded")
+		
+		initialModel = ui.NewModel(s3Storage, cfg, meta.Salt, meta.Verifier, log)
 	}
 
 	log.Info("config parsed")
