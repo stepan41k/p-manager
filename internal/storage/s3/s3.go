@@ -2,6 +2,7 @@ package s3
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -47,6 +48,31 @@ func New(ctx context.Context, cfg *config.S3Config, log *slog.Logger) (*Storage,
 		client: client,
 		bucket: cfg.Bucket,
 	}, nil
+}
+
+type Metadata struct {
+	Salt     []byte `json:"salt"`
+	Verifier []byte `json:"verifier"`
+}
+
+func (s *Storage) DownloadMeta(ctx context.Context) (*Metadata, error) {
+	reader, err := s.Download(ctx, "meta.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to download meta.json: %w", err)
+	}
+	defer reader.Close()
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	var meta Metadata
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil, err
+	}
+
+	return &meta, nil
 }
 
 func (s *Storage) Upload(ctx context.Context, key string, body io.Reader) error {
