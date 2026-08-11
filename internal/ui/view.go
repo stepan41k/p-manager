@@ -20,6 +20,9 @@ func (m *Model) View() tea.View {
 	case setupState:
 		content = m.renderForm("INITIAL SETUP")
 		footer = m.help.View(m.keys.Setup)
+	case otpState:
+		content = m.otpView()
+		footer = m.help.View(m.keys.OTP)
 	case authState:
 		content = m.authView()
 		footer = m.help.View(m.keys.Auth)
@@ -96,6 +99,29 @@ func (m *Model) authView() string {
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 }
 
+func (m *Model) otpView() string {
+	s := m.styles
+	header := s.Title.Render("📧 EMAIL VERIFICATION")
+
+	errStr := ""
+	if m.errorMessage != "" {
+		errStr = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render("\n" + m.errorMessage)
+	}
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Center,
+		header,
+		"",
+		"Код подтверждения отправлен на вашу почту.",
+		"Введите 6-значный код:",
+		"",
+		m.otpInput.View(),
+		errStr,
+	)
+
+	return s.Card.Render(content)
+}
+
 func (m *Model) vaultView() string {
 	return m.vaultList.View()
 }
@@ -146,13 +172,13 @@ func (m *Model) renderForm(title string) string {
 	inputs := lipgloss.JoinVertical(lipgloss.Left, inputViews...)
 
 	status := ""
-    if m.errorMessage != "" {
-        status = lipgloss.NewStyle().
-            Foreground(lipgloss.Color("11")).
-            MarginTop(1).
-            Render(m.errorMessage)
-    }
-	
+	if m.errorMessage != "" {
+		status = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("11")).
+			MarginTop(1).
+			Render(m.errorMessage)
+	}
+
 	formContent := lipgloss.JoinVertical(lipgloss.Left, header, inputs, status)
 
 	return s.Card.Render(formContent)
