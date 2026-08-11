@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/smtp"
 	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/crypto"
-	"github.com/stepan41k/p-manager/internal/lib/email"
 	"github.com/stepan41k/p-manager/internal/lib/logger/sl"
 
 	"github.com/zalando/go-keyring"
@@ -27,6 +28,7 @@ type vaultErrorMsg error
 type otpEmailSentMsg struct{}
 type setupFinishedMsg struct {
 	Storage  VaultStorage
+	Config   config.Config
 	Salt     []byte
 	Verifier []byte
 }
@@ -56,6 +58,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.passInput.Focus()
 
 		return m, nil
+
+	case otpEmailSentMsg:
+		m.state = otpState
+		m.errorMessage = "" // 1. Очищаем надпись "Sending code to email..."
+		m.setupOTPInput()   // 2. Инициализируем и фокусируем поле для 6 цифр
+		return m, textinput.Blink
 
 	case vaultLoadedMsg:
 		m.vaultList.SetItems(msg)
@@ -139,14 +147,20 @@ func (m *Model) runSetupCmd() tea.Cmd {
 	return func() tea.Msg {
 		reg, endp, buck := m.inputs[0].Value(), m.inputs[1].Value(), m.inputs[2].Value()
 		accKey, secKey := m.inputs[3].Value(), m.inputs[4].Value()
-		email, master := m.inputs[5].Value(), m.inputs[6].Value()
+		smtpHost, smtpPort := m.inputs[5].Value(), m.inputs[6].Value()
+		smtpSender, smtpPass := m.inputs[7].Value(), m.inputs[8].Value()
+		email, master := m.inputs[9].Value(), m.inputs[10].Value()
 
 		keyring.Set("p-manager", "access_key", accKey)
 		keyring.Set("p-manager", "secret_key", secKey)
+		keyring.Set("p-manager", "smtp_password", smtpPass)
 
 		cfg := config.Config{
-			UserConfig: config.UserConfig{
-				Email: email,
+			SMTPConfig: config.SMTPConfig{
+				Email:      email,
+				SMTPHost:   smtpHost,
+				SMTPPort:   smtpPort,
+				SMTPSender: smtpSender,
 			},
 			S3Config: config.S3Config{
 				Region:   reg,
@@ -186,6 +200,7 @@ func (m *Model) runSetupCmd() tea.Cmd {
 
 		return setupFinishedMsg{
 			Storage:  storage,
+			Config:   cfg,
 			Salt:     salt,
 			Verifier: verifier,
 		}
@@ -218,7 +233,7 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errorMessage = "Sending code to email..."
 
 			return m, func() tea.Msg {
-				sendErr := email.SendOTPEmail(code)
+				sendErr := m.sendOTPEmail(code)
 				if sendErr != nil {
 					return vaultErrorMsg(sendErr)
 				}
@@ -229,6 +244,36 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.passInput, cmd = m.passInput.Update(msg)
 	return m, cmd
+}
+
+func (m *Model) sendOTPEmail(code string) error {
+	smtpPassword, err := keyring.Get("p-manager", "smtp_password")
+	if err != nil {
+		return fmt.Errorf("smtp password not found in keyring: %w", err)
+	}
+
+	cfg := m.config.SMTPConfig
+
+	host := cfg.SMTPHost
+	port := cfg.SMTPPort
+	from := cfg.SMTPSender
+	to := cfg.Email
+
+	subject := "Subject: Vault Access Code\n"
+	mime := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
+	body := fmt.Sprintf("Your security code is: <b>%s</b>", code)
+	msg := []byte(subject + mime + body)
+
+	auth := smtp.PlainAuth("", from, smtpPassword, host)
+	addr := fmt.Sprintf("%s:%s", host, port)
+
+	m.log.Warn("", addr, auth, from, []string{to}, string(msg))
+
+	go func () {
+		smtp.SendMail(addr, auth, from, []string{to}, msg)
+	}()
+	
+	return nil
 }
 
 func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
