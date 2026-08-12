@@ -2,13 +2,18 @@ package crypto
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"math/big"
 )
 
 const (
-	digits = "0123456789"
+	digits        = "0123456789"
 	defaultLength = 6
 )
+
+func HashOTP(code string) [32]byte {
+	return sha256.Sum256([]byte(code))
+}
 
 func GenerateOTP() (string, error) {
 	result := make([]byte, defaultLength)
