@@ -20,6 +20,11 @@ type Storage struct {
 	bucket string
 }
 
+type Metadata struct {
+	Salt     []byte `json:"salt"`
+	Verifier []byte `json:"verifier"`
+}
+
 func New(ctx context.Context, cfg *config.S3Config, log *slog.Logger) (*Storage, error) {
 	accessKey, secretKey, err := GetSecrets()
 	if err != nil {
@@ -48,11 +53,6 @@ func New(ctx context.Context, cfg *config.S3Config, log *slog.Logger) (*Storage,
 		client: client,
 		bucket: cfg.Bucket,
 	}, nil
-}
-
-type Metadata struct {
-	Salt     []byte `json:"salt"`
-	Verifier []byte `json:"verifier"`
 }
 
 func (s *Storage) DownloadMeta(ctx context.Context) (*Metadata, error) {
