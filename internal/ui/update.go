@@ -61,8 +61,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case otpEmailSentMsg:
 		m.state = otpState
-		m.errorMessage = "" // 1. Очищаем надпись "Sending code to email..."
-		m.setupOTPInput()   // 2. Инициализируем и фокусируем поле для 6 цифр
+		m.errorMessage = ""
+		m.setupOTPInput()
 		return m, textinput.Blink
 
 	case vaultLoadedMsg:
@@ -267,12 +267,10 @@ func (m *Model) sendOTPEmail(code string) error {
 	auth := smtp.PlainAuth("", from, smtpPassword, host)
 	addr := fmt.Sprintf("%s:%s", host, port)
 
-	m.log.Warn("", addr, auth, from, []string{to}, string(msg))
-
 	go func () {
 		smtp.SendMail(addr, auth, from, []string{to}, msg)
 	}()
-	
+
 	return nil
 }
 

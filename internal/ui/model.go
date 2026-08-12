@@ -98,7 +98,7 @@ func NewModel(s3 *s3.Storage, cfg *config.Config, salt, verifier []byte, log *sl
 		help: help,
 
 		config: cfg,
-		
+
 		salt:     salt,
 		verifier: verifier,
 

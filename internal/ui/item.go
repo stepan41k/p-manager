@@ -2,9 +2,9 @@ package ui
 
 type VaultItem struct {
 	Resource string `json:"resource"`
-	Email    string	`json:"email"`
-	Username string	`json:"username"`
-	Password string	`json:"password"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 func (i VaultItem) FilterValue() string { return i.Resource }
