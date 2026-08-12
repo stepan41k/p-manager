@@ -25,7 +25,6 @@ func main() {
 	log := setupLogger(file)
 
 	log.Info("attempting to parse config")
-
 	cfg, err := config.MustLoad()
 
 	var initialModel *ui.Model
@@ -34,25 +33,24 @@ func main() {
 			initialModel = ui.NewModel(nil, cfg, nil, nil, log)
 			initialModel.SetupInitialInputs()
 		} else {
-			log.Error("failed to load config:", sl.Err(err))
+			log.Warn("failed to load config:", sl.Err(err))
 			os.Exit(1)
 		}
 	} else {
-		log.Info("attempting to initialize s3 storage")
-
+		log.Info("config parsed")
+		
+		log.Warn("attempting to initialize s3 storage")
 		s3Storage, err := s3.New(context.Background(), &cfg.S3Config, log)
 		if err != nil {
-			log.Error("failed to initialize s3 storage:", sl.Err(err))
+			log.Warn("failed to initialize s3 storage:", sl.Err(err))
 			os.Exit(1)
 		}
-
 		log.Info("s3 storage initialized")
 
 		log.Warn("download meta data")
-
 		meta, err := s3Storage.DownloadMeta(context.TODO())
 		if err != nil {
-			log.Error("failed to download metadata from S3:", sl.Err(err))
+			log.Warn("failed to download metadata from S3:", sl.Err(err))
 			os.Exit(1)
 		}
 
@@ -61,17 +59,15 @@ func main() {
 		initialModel = ui.NewModel(s3Storage, cfg, meta.Salt, meta.Verifier, log)
 	}
 
-	log.Info("config parsed")
-
 	p := tea.NewProgram(initialModel)
 
 	if _, err = p.Run(); err != nil {
-		log.Error("failed to run program: %w", sl.Err(err))
+		log.Warn("failed to run program: %w", sl.Err(err))
 		os.Exit(1)
 	}
 
 	if err = file.Truncate(0); err != nil {
-		log.Error("failed to truncate log file: %w", sl.Err(err))
+		log.Warn("failed to truncate log file: %w", sl.Err(err))
 	}
 
 	c := exec.Command("clear")
