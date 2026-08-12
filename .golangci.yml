@@ -1,61 +1,61 @@
 version: "2"
 run:
-  go: 1.26.0
+    go: 1.26.0
 output:
-  formats:
-    text:
-      path: stdout
-      print-linter-name: true
-      print-issued-lines: true
+    formats:
+        text:
+            path: stdout
+            print-linter-name: true
+            print-issued-lines: true
 linters:
-  default: none
-  enable:
-    - bodyclose
-    - errcheck
-    - gocritic
-    - govet
-    - ineffassign
-    - sqlclosecheck
-    - staticcheck
-    - unused
-  settings:
-    errcheck:
-      check-type-assertions: true
-      check-blank: true
-    gocritic:
-      enabled-tags:
-        - diagnostic
-        - style
-        - performance
-    govet:
-      enable:
-        - shadow
-    revive:
-      rules:
-        - name: exported
-        - name: var-naming
-        - name: package-comments
-  exclusions:
-    generated: lax
-    presets:
-      - comments
-      - common-false-positives
-      - legacy
-      - std-error-handling
-    rules:
-      - linters:
-          - errcheck
-          - revive
-        path: _test\.go
-    paths:
-      - internal/grpc/pb
-      - third_party$
-      - builtin$
-      - examples$
+    default: none
+    enable:
+        - bodyclose
+        - errcheck
+        - gocritic
+        - govet
+        - ineffassign
+        - sqlclosecheck
+        - staticcheck
+        - unused
+    settings:
+        errcheck:
+            check-type-assertions: true
+            check-blank: true
+        gocritic:
+            enabled-tags:
+                - diagnostic
+                - style
+                - performance
+        govet:
+            enable:
+                - shadow
+        revive:
+            rules:
+                - name: exported
+                - name: var-naming
+                - name: package-comments
+    exclusions:
+        generated: lax
+        presets:
+            - comments
+            - common-false-positives
+            - legacy
+            - std-error-handling
+        rules:
+            - linters:
+                  - errcheck
+                  - revive
+              path: _test\.go
+        paths:
+            - internal/grpc/pb
+            - third_party$
+            - builtin$
+            - examples$
 formatters:
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+    exclusions:
+        generated: lax
+        paths:
+            - third_party$
+            - builtin$
+            - examples$
