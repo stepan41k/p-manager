@@ -36,28 +36,24 @@ type VaultStorage interface {
 type Model struct {
 	width  int
 	height int
-
-	storage      VaultStorage
 	state        sessionState
+	storage      VaultStorage
+	log          *slog.Logger
 	passInput    textinput.Model
 	otpInput     textinput.Model
+	inputs       []textinput.Model
+	focusIndex   int
 	vaultList    list.Model
 	selectedItem VaultItem
 	styles       styles.Styles
 	config       *config.Config
-
+	keys KeyMap
+	help help.Model
 	masterKey       []byte
 	salt            []byte
 	verifier        []byte
 	expectedOTPHash [32]byte
-
-	keys KeyMap
-	help help.Model
-
 	errorMessage string
-	inputs       []textinput.Model
-	focusIndex   int
-	log          *slog.Logger
 }
 
 func NewModel(s3 *s3.Storage, cfg *config.Config, salt, verifier []byte, log *slog.Logger) *Model {
@@ -116,8 +112,8 @@ func (m *Model) SetupInitialInputs() {
 
 	labels := []string{
 		"S3 Region", "S3 Endpoint", "S3 Bucket", "AWS Access Key", "AWS Secret Key",
-		"SMTP Host (smtp.gmail.com)", "SMTP Port (587)", "Sender Email", "Sender Password",
-		"Target Email (Your Email)", "Set Master Password",
+		"SMTP Host", "SMTP Port", "Sender Email", "Sender Password",
+		"Target Email", "Set Master Password",
 	}
 
 	for i := range m.inputs {
