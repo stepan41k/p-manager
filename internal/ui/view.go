@@ -74,6 +74,41 @@ func (m *Model) View() tea.View {
 	return v
 }
 
+func (m *Model) vaultView() string  { return m.vaultList.View() }
+func (m *Model) createView() string { return m.renderForm("NEW ENTRY") }
+func (m *Model) editView() string   { return m.renderForm("EDITING") }
+
+func (m *Model) renderForm(title string) string {
+	s := m.styles
+
+	header := s.Title.
+		Foreground(lipgloss.Color("205")).
+		MarginBottom(1).
+		Render("── " + title + " ──")
+
+	var inputViews []string
+	for i := range m.inputs {
+		prefix := "  "
+		if i == m.focusIndex {
+			prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> ")
+		}
+		inputViews = append(inputViews, prefix+m.inputs[i].View())
+	}
+	inputs := lipgloss.JoinVertical(lipgloss.Left, inputViews...)
+
+	status := ""
+	if m.errorMessage != "" {
+		status = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("11")).
+			MarginTop(1).
+			Render(m.errorMessage)
+	}
+
+	formContent := lipgloss.JoinVertical(lipgloss.Left, header, inputs, status)
+
+	return s.Card.Render(formContent)
+}
+
 func (m *Model) authView() string {
 	titleText := " PASSWORD MANAGER "
 
@@ -112,18 +147,14 @@ func (m *Model) otpView() string {
 		lipgloss.Center,
 		header,
 		"",
-		"Код подтверждения отправлен на вашу почту.",
-		"Введите 6-значный код:",
+		"A confirmation code has been sent to your email.",
+		"Enter the 6-digit code:",
 		"",
 		m.otpInput.View(),
 		errStr,
 	)
 
 	return s.Card.Render(content)
-}
-
-func (m *Model) vaultView() string {
-	return m.vaultList.View()
 }
 
 func (m *Model) detailsView() string {
@@ -148,40 +179,6 @@ func (m *Model) detailsView() string {
 	)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, s.Card.Render(content))
-}
-
-func (m *Model) createView() string { return m.renderForm("NEW ENTRY") }
-func (m *Model) editView() string   { return m.renderForm("EDITING") }
-
-func (m *Model) renderForm(title string) string {
-	s := m.styles
-
-	header := s.Title.
-		Foreground(lipgloss.Color("205")).
-		MarginBottom(1).
-		Render("── " + title + " ──")
-
-	var inputViews []string
-	for i := range m.inputs {
-		prefix := "  "
-		if i == m.focusIndex {
-			prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> ")
-		}
-		inputViews = append(inputViews, prefix+m.inputs[i].View())
-	}
-	inputs := lipgloss.JoinVertical(lipgloss.Left, inputViews...)
-
-	status := ""
-	if m.errorMessage != "" {
-		status = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("11")).
-			MarginTop(1).
-			Render(m.errorMessage)
-	}
-
-	formContent := lipgloss.JoinVertical(lipgloss.Left, header, inputs, status)
-
-	return s.Card.Render(formContent)
 }
 
 func (m *Model) deleteView() string {
