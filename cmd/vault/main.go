@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"os/exec"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stepan41k/p-manager/internal/config"
@@ -15,10 +17,22 @@ import (
 	"github.com/stepan41k/p-manager/internal/ui"
 )
 
+var (
+	debugFile = "debug.log"
+)
+
 func main() {
-	file, err := os.OpenFile("debug.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
+	var errorMessage string
+	
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("panic:", err)
+		}
+	}()
+	file, err := os.OpenFile(debugFile, os.O_WRONLY | os.O_CREATE | os.O_APPEND, 0o666)
 	if err != nil {
-		os.Exit(1)
+		errorMessage = fmt.Sprintf("failed to open debug file: %s", err.Error())
+		panic(errorMessage)
 	}
 	defer file.Close()
 
@@ -34,7 +48,8 @@ func main() {
 			initialModel.SetupInitialInputs()
 		} else {
 			log.Warn("failed to load config:", sl.Err(err))
-			os.Exit(1)
+			errorMessage := fmt.Sprintf("failed to load config: %s", err.Error())
+			panic(errorMessage)
 		}
 	} else {
 		log.Info("config parsed")
@@ -43,15 +58,20 @@ func main() {
 		s3Storage, err := s3.New(context.Background(), &cfg.S3Config, log)
 		if err != nil {
 			log.Warn("failed to initialize s3 storage:", sl.Err(err))
-			os.Exit(1)
+			errorMessage := fmt.Sprintf("failed to initialize s3 storage: %s", err.Error())
+			panic(errorMessage)
 		}
 		log.Info("s3 storage initialized")
 
 		log.Warn("download meta data")
-		meta, err := s3Storage.DownloadMeta(context.TODO())
+		ctx, cancel := context.WithTimeout(context.Background(), 15 * time.Second)
+		defer cancel()
+		
+		meta, err := s3Storage.DownloadMeta(ctx)
 		if err != nil {
 			log.Warn("failed to download metadata from S3:", sl.Err(err))
-			os.Exit(1)
+			errorMessage := fmt.Sprintf("failed to download metadata from S3: %s", err.Error())
+			panic(errorMessage)
 		}
 
 		log.Info("meta data downloaded")
@@ -62,8 +82,9 @@ func main() {
 	p := tea.NewProgram(initialModel)
 
 	if _, err = p.Run(); err != nil {
-		log.Warn("failed to run program: %w", sl.Err(err))
-		os.Exit(1)
+		log.Warn("failed to run program", sl.Err(err))
+		errorMessage := fmt.Sprintf("failed to run program: %s", err.Error())
+		panic(errorMessage)
 	}
 
 	if err = file.Truncate(0); err != nil {
