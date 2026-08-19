@@ -1,4 +1,4 @@
-package ui
+package app
 
 import (
 	"bytes"
@@ -89,7 +89,7 @@ func (m *Model) runSetupCmd() tea.Cmd {
 
 		err = storage.Upload(ctx, "meta.json", bytes.NewReader(metaData))
 		if err != nil {
-			m.log.Warn("failed to upload metadata")
+			m.log.Warn("failed to upload metadata", sl.Err(err))
 			return vaultErrorMsg(err)
 		}
 
@@ -104,7 +104,7 @@ func (m *Model) runSetupCmd() tea.Cmd {
 func (m *Model) sendOTPEmail(code string) error {
 	smtpPassword, err := keyring.Get("p-manager", "smtp_password")
 	if err != nil {
-		// m.log.Warn("failed to get password:", err.Error())
+		m.log.Warn("failed to get password", sl.Err(err))
 		return fmt.Errorf("smtp password not found in keyring: %w", err)
 	}
 
@@ -125,9 +125,9 @@ func (m *Model) sendOTPEmail(code string) error {
 
 	err = smtp.SendMail(addr, auth, from, []string{to}, msg)
 	if err != nil {
-		// m.log.Warn("failed to send mail:", err.Error())
+		m.log.Warn("failed to send mail:", sl.Err(err))
+		return fmt.Errorf("failed to send mail: %w", err)
 	}
-	m.log.Info("DEVELOPMENT OTP CODE", "code", code)
 
 	return nil
 }
@@ -222,13 +222,13 @@ func (m *Model) saveAndUploadCmd(entry VaultItem) tea.Cmd {
 
 		jsonData, err := json.Marshal(allEntries)
 		if err != nil {
-			m.log.Error("failed to marshal data: %w", sl.Err(err))
+			m.log.Warn("failed to marshal data: %w", sl.Err(err))
 			return vaultErrorMsg(err)
 		}
 
 		encryptedData, err := crypto.Encrypt(jsonData, m.masterKey)
 		if err != nil {
-			m.log.Error("failed to encrypt data: %w", sl.Err(err))
+			m.log.Warn("failed to encrypt data: %w", sl.Err(err))
 			return vaultErrorMsg(err)
 		}
 
@@ -239,7 +239,7 @@ func (m *Model) saveAndUploadCmd(entry VaultItem) tea.Cmd {
 
 		err = m.storage.Upload(ctx, "vault.enc", bodyReader)
 		if err != nil {
-			m.log.Error("error with uploading to S3: %w", sl.Err(err))
+			m.log.Warn("error with uploading to S3: %w", sl.Err(err))
 			return vaultErrorMsg(err)
 		}
 
@@ -259,7 +259,7 @@ func (m *Model) fetchVaultCmd() tea.Cmd {
 
 		body, err := m.storage.Download(ctx, "vault.enc")
 		if err != nil {
-			m.log.Error("error retrieving data from s3 storage: ", sl.Err(err))
+			m.log.Warn("error retrieving data from s3 storage: ", sl.Err(err))
 			return vaultLoadedMsg([]list.Item{})
 		}
 
@@ -267,19 +267,19 @@ func (m *Model) fetchVaultCmd() tea.Cmd {
 
 		encryptedData, err := io.ReadAll(body)
 		if err != nil {
-			m.log.Error("error reading body: ", sl.Err(err))
+			m.log.Warn("error reading body: ", sl.Err(err))
 			return vaultErrorMsg(err)
 		}
 
 		decryptedData, err := crypto.Decrypt(encryptedData, m.masterKey)
 		if err != nil {
-			m.log.Error("error decrypting data: ", sl.Err(err))
+			m.log.Warn("error decrypting data: ", sl.Err(err))
 			return vaultErrorMsg(fmt.Errorf("error decrypting data: check password"))
 		}
 
 		var entries []VaultItem
 		if err := json.Unmarshal(decryptedData, &entries); err != nil {
-			m.log.Error("failed to unmarshal data: ", sl.Err(err))
+			m.log.Warn("failed to unmarshal data: ", sl.Err(err))
 			return vaultErrorMsg(err)
 		}
 
