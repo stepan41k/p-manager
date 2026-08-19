@@ -1,4 +1,4 @@
-package ui
+package app
 
 type VaultItem struct {
 	Resource string `json:"resource"`

@@ -1,11 +1,11 @@
-package ui
+package app
 
 import (
 	"charm.land/bubbles/v2/key"
 )
 
 type KeyMap struct {
-	Setup setupKeyMap
+	Setup   setupKeyMap
 	Auth    authKeyMap
 	OTP     otpKeyMap
 	Vault   vaultKeyMap
@@ -16,10 +16,10 @@ type KeyMap struct {
 }
 
 type setupKeyMap struct {
-	Enter key.Binding
+	Enter    key.Binding
 	Next     key.Binding
 	Previous key.Binding
-	Quit  key.Binding
+	Quit     key.Binding
 }
 
 type authKeyMap struct {
