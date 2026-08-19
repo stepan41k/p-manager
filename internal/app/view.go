@@ -41,11 +41,6 @@ func (m *Model) View() tea.View {
 	case detailsState:
 		content = m.detailsView()
 		footer = m.help.View(m.keys.Details)
-		m.log.Info("DEBUG FOOTER", 
-				"footer_len", len(footer), 
-				"help_width", m.help.Width(), 
-				"keys_count", len(m.keys.Details.ShortHelp()),
-			)
 	case createState:
 		content = m.createView()
 		footer = m.help.View(m.keys.Create)
