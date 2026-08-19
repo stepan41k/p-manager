@@ -1,4 +1,4 @@
-package styles
+package app
 
 import (
 	"charm.land/bubbles/v2/list"
@@ -12,19 +12,18 @@ type Styles struct {
 	Pagination   lipgloss.Style
 	Help         lipgloss.Style
 	QuitText     lipgloss.Style
-
-	Card        lipgloss.Style
-	DetailLabel lipgloss.Style
-	DetailValue lipgloss.Style
-	DetailKey   lipgloss.Style
+	Card         lipgloss.Style
+	DetailLabel  lipgloss.Style
+	DetailValue  lipgloss.Style
+	DetailKey    lipgloss.Style
 }
 
 func NewStyles(darkBG bool) Styles {
 	var s Styles
 	s.Title = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("230")). 
-		Padding(0, 1).                     
-		MarginLeft(2).                     
+		Foreground(lipgloss.Color("230")).
+		Padding(0, 1).
+		MarginLeft(2).
 		Bold(true)
 
 	s.Item = lipgloss.NewStyle().PaddingLeft(4)
