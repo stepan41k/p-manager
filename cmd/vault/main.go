@@ -14,7 +14,7 @@ import (
 	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/lib/logger/sl"
 	"github.com/stepan41k/p-manager/internal/storage/s3"
-	"github.com/stepan41k/p-manager/internal/ui"
+	"github.com/stepan41k/p-manager/internal/app"
 )
 
 var (

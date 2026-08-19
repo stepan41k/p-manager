@@ -11,7 +11,7 @@ import (
 
 	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/storage/s3"
-	"github.com/stepan41k/p-manager/internal/ui/styles"
+	"github.com/stepan41k/p-manager/internal/app/styles"
 )
 
 type sessionState int
