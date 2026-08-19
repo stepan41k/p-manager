@@ -42,10 +42,10 @@ func main() {
 	log.Info("attempting to parse config")
 	cfg, err := config.MustLoad()
 
-	var initialModel *ui.Model
+	var initialModel *app.Model
 	if err != nil {
 		if errors.Is(err, config.ErrNotExists) {
-			initialModel = ui.NewModel(nil, cfg, nil, log)
+			initialModel = app.NewModel(nil, cfg, nil, log)
 			initialModel.SetupInitialInputs()
 		} else {
 			log.Warn("failed to load config:", sl.Err(err))
@@ -77,7 +77,7 @@ func main() {
 
 		log.Info("meta data downloaded")
 		
-		initialModel = ui.NewModel(s3Storage, cfg, meta, log)
+		initialModel = app.NewModel(s3Storage, cfg, meta, log)
 	}
 
 	p := tea.NewProgram(initialModel)
