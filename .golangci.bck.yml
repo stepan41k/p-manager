@@ -23,6 +23,7 @@ linters-settings:
 linters:
     disable-all: true
     enable:
+        - gosec
         - errcheck # unhandled errors
         - govet # standard
         - ineffassign # finding unused assignments
