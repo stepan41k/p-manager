@@ -1,4 +1,4 @@
-package ui
+package app
 
 import (
 	"context"
@@ -11,20 +11,19 @@ import (
 
 	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/storage/s3"
-	"github.com/stepan41k/p-manager/internal/app/styles"
 )
 
 type sessionState int
 
 const (
-	setupState   sessionState = iota // Первичная настройка
-	authState                        // Ввод мастер-пароля
-	otpState                         // Ввод OTP
-	vaultState                       // Поиск и выбор аккаунта
-	detailsState                     // Просмотр деталей или добавление нового пароля
-	createState                      // Создание нового пароля
-	editState                        // Редактирование записи
-	deleteState                      // Удаление записи
+	setupState   sessionState = iota // Initial setup
+	authState                        // Entering the master password
+	otpState                         // Enter OTP
+	vaultState                       // Searching for and selecting a entry
+	detailsState                     // View entry details
+	createState                      // Creating a new entry
+	editState                        // Editing the entry
+	deleteState                      // Deleting the entry
 )
 
 type VaultStorage interface {
@@ -34,25 +33,32 @@ type VaultStorage interface {
 }
 
 type Model struct {
-	width           int
-	height          int
-	state           sessionState
-	storage         VaultStorage
-	meta            s3.Metadata
-	log             *slog.Logger
-	passInput       textinput.Model
-	otpInput        textinput.Model
-	inputs          []textinput.Model
-	focusIndex      int
-	vaultList       list.Model
-	selectedItem    VaultItem
-	styles          styles.Styles
-	config          *config.Config
-	keys            KeyMap
-	help            help.Model
+	// Window size and app state
+	width  int
+	height int
+	state  sessionState
+
+	// Infrastructure
+	storage VaultStorage
+	config  *config.Config
+	log     *slog.Logger
+
+	// Security and Session
 	masterKey       []byte
+	meta            s3.Metadata
 	expectedOTPHash [32]byte
-	errorMessage    string
+
+	// State of forms and lists
+	inputs       []textinput.Model
+	focusIndex   int
+	vaultList    list.Model
+	selectedItem VaultItem
+	errorMessage string
+
+	// Design and Hotkeys
+	styles Styles
+	keys   KeyMap
+	help   help.Model
 }
 
 func NewModel(s3 *s3.Storage, cfg *config.Config, meta *s3.Metadata, log *slog.Logger) *Model {
@@ -63,7 +69,7 @@ func NewModel(s3 *s3.Storage, cfg *config.Config, meta *s3.Metadata, log *slog.L
 	ti.SetWidth(40)
 	ti.Focus()
 
-	currentStyles := styles.NewStyles(true)
+	currentStyles := NewStyles(true)
 
 	defaultDelegate := list.NewDefaultDelegate()
 
@@ -87,105 +93,23 @@ func NewModel(s3 *s3.Storage, cfg *config.Config, meta *s3.Metadata, log *slog.L
 	m := &Model{
 		state:     startState,
 		storage:   s3,
-		passInput: ti,
-
-		keys: keys,
-		help: help,
-
-		config: cfg,
-
+		config:    cfg,
 		styles:    currentStyles,
 		vaultList: vList,
 		log:       log,
+		keys:      keys,
+		help:      help,
 	}
 
 	if meta != nil {
-        m.meta = *meta // ОБЯЗАТЕЛЬНО: записываем скачанный meta в m.meta
-    }
+		m.meta = *meta
+	}
+
+	if startState == setupState {
+		m.SetupInitialInputs()
+	} else {
+		m.setupAuthInput()
+	}
 
 	return m
-}
-
-func (m *Model) SetupInitialInputs() {
-	m.focusIndex = 0
-	m.inputs = make([]textinput.Model, 11)
-
-	labels := []string{
-		"S3 Region", "S3 Endpoint", "S3 Bucket", "AWS Access Key", "AWS Secret Key",
-		"SMTP Host", "SMTP Port", "Sender Email", "Sender Password",
-		"Target Email", "Set Master Password",
-	}
-
-	for i := range m.inputs {
-		t := textinput.New()
-		t.Prompt = ""
-		t.SetWidth(40)
-		t.Placeholder = labels[i]
-		if i == 4 || i == 8 || i == 10 {
-			t.EchoMode = textinput.EchoPassword
-			t.EchoCharacter = '*'
-		}
-		m.inputs[i] = t
-	}
-	m.inputs[0].Focus()
-}
-
-func (m *Model) setupInputs() {
-	m.focusIndex = 0
-	m.inputs = make([]textinput.Model, 4)
-
-	placeholders := []string{"Service", "Email", "Username", "Password"}
-
-	for i := range m.inputs {
-		t := textinput.New()
-		t.SetWidth(40)
-
-		t.Prompt = ""
-
-		t.Placeholder = placeholders[i]
-		if i == 0 {
-			t.Focus()
-		}
-		m.inputs[i] = t
-	}
-
-	m.inputs[0].Focus()
-}
-
-func (m *Model) setupOTPInput() {
-	ti := textinput.New()
-	ti.Placeholder = "******"
-	ti.CharLimit = 6
-	ti.Focus()
-	ti.SetWidth(10)
-	ti.Prompt = "Код: "
-	m.otpInput = ti
-}
-
-func (m *Model) setupEditInputs() {
-	m.focusIndex = 0
-	m.inputs = make([]textinput.Model, 4)
-
-	values := []string{
-		m.selectedItem.Resource,
-		m.selectedItem.Email,
-		m.selectedItem.Username,
-		m.selectedItem.Password,
-	}
-
-	placeholders := []string{"Service", "Email", "Username", "Password"}
-
-	for i := range m.inputs {
-		t := textinput.New()
-		t.SetWidth(40)
-
-		t.Prompt = ""
-
-		t.Placeholder = placeholders[i]
-		t.SetValue(values[i])
-		if i == 0 {
-			t.Focus()
-		}
-		m.inputs[i] = t
-	}
 }
