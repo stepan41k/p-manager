@@ -1,8 +1,7 @@
-package ui
+package app
 
 import (
 	"fmt"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -42,6 +41,11 @@ func (m *Model) View() tea.View {
 	case detailsState:
 		content = m.detailsView()
 		footer = m.help.View(m.keys.Details)
+		m.log.Info("DEBUG FOOTER", 
+				"footer_len", len(footer), 
+				"help_width", m.help.Width(), 
+				"keys_count", len(m.keys.Details.ShortHelp()),
+			)
 	case createState:
 		content = m.createView()
 		footer = m.help.View(m.keys.Create)
@@ -86,13 +90,17 @@ func (m *Model) renderForm(title string) string {
 		MarginBottom(1).
 		Render("── " + title + " ──")
 
+	labels := []string{"Service:", "Email:", "Username:", "Password:"}
+	
 	var inputViews []string
 	for i := range m.inputs {
 		prefix := "  "
 		if i == m.focusIndex {
 			prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> ")
 		}
-		inputViews = append(inputViews, prefix+m.inputs[i].View())
+		label := s.DetailLabel.Render(labels[i])
+		row := fmt.Sprintf("%s%s %s", prefix, label, m.inputs[i].View())
+		inputViews = append(inputViews, row)
 	}
 	inputs := lipgloss.JoinVertical(lipgloss.Left, inputViews...)
 
@@ -110,28 +118,31 @@ func (m *Model) renderForm(title string) string {
 }
 
 func (m *Model) authView() string {
-	titleText := " PASSWORD MANAGER "
+	s := m.styles
 
-	header := lipgloss.NewStyle().
-		Width(m.width).
-		Align(lipgloss.Center).
-		Bold(true).
-		Foreground(lipgloss.Color("230")).
-		Render(strings.Repeat("─", 5) + titleText + strings.Repeat("─", 5))
+	header := s.Title.Foreground(lipgloss.Color("205")).Render("── PASSWORD MANAGER ──")
 
-	content := lipgloss.JoinVertical(
-		lipgloss.Center,
-		header,
-		"",
-		"Enter master-password:",
-		m.passInput.View(),
-	)
-
+	errStr := ""
 	if m.errorMessage != "" {
-		content = lipgloss.JoinVertical(lipgloss.Center, content, "", lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(m.errorMessage))
+		errStr = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("9")).
+			Render(m.errorMessage)
 	}
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	labelStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Bold(true)
+	
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		header,
+		"",
+		labelStyle.Render("Master Password:"),
+		m.inputs[0].View(),
+		errStr,
+	)
+
+	return s.Card.Render(content)
 }
 
 func (m *Model) otpView() string {
@@ -150,7 +161,7 @@ func (m *Model) otpView() string {
 		"A confirmation code has been sent to your email.",
 		"Enter the 6-digit code:",
 		"",
-		m.otpInput.View(),
+		m.inputs[0].View(),
 		errStr,
 	)
 
@@ -175,10 +186,9 @@ func (m *Model) detailsView() string {
 		drawRow("Email:", m.selectedItem.Email, s.DetailValue),
 		drawRow("Password:", m.selectedItem.Password, s.DetailKey),
 		"",
-		lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("240")).Render("esc: back | c: copy"),
 	)
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, s.Card.Render(content))
+	return s.Card.Render(content)
 }
 
 func (m *Model) deleteView() string {
