@@ -34,29 +34,28 @@ type VaultStorage interface {
 }
 
 type Model struct {
-	width  int
-	height int
-	state        sessionState
-	storage      VaultStorage
-	log          *slog.Logger
-	passInput    textinput.Model
-	otpInput     textinput.Model
-	inputs       []textinput.Model
-	focusIndex   int
-	vaultList    list.Model
-	selectedItem VaultItem
-	styles       styles.Styles
-	config       *config.Config
-	keys KeyMap
-	help help.Model
+	width           int
+	height          int
+	state           sessionState
+	storage         VaultStorage
+	meta            s3.Metadata
+	log             *slog.Logger
+	passInput       textinput.Model
+	otpInput        textinput.Model
+	inputs          []textinput.Model
+	focusIndex      int
+	vaultList       list.Model
+	selectedItem    VaultItem
+	styles          styles.Styles
+	config          *config.Config
+	keys            KeyMap
+	help            help.Model
 	masterKey       []byte
-	salt            []byte
-	verifier        []byte
 	expectedOTPHash [32]byte
-	errorMessage string
+	errorMessage    string
 }
 
-func NewModel(s3 *s3.Storage, cfg *config.Config, salt, verifier []byte, log *slog.Logger) *Model {
+func NewModel(s3 *s3.Storage, cfg *config.Config, meta *s3.Metadata, log *slog.Logger) *Model {
 	ti := textinput.New()
 	ti.EchoMode = textinput.EchoPassword
 	ti.Placeholder = ""
@@ -95,13 +94,14 @@ func NewModel(s3 *s3.Storage, cfg *config.Config, salt, verifier []byte, log *sl
 
 		config: cfg,
 
-		salt:     salt,
-		verifier: verifier,
-
 		styles:    currentStyles,
 		vaultList: vList,
 		log:       log,
 	}
+
+	if meta != nil {
+        m.meta = *meta // ОБЯЗАТЕЛЬНО: записываем скачанный meta в m.meta
+    }
 
 	return m
 }
