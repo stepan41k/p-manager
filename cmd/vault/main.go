@@ -29,6 +29,7 @@ func main() {
 			fmt.Println("panic:", err)
 		}
 	}()
+	
 	file, err := os.OpenFile(debugFile, os.O_WRONLY | os.O_CREATE | os.O_APPEND, 0o666)
 	if err != nil {
 		errorMessage = fmt.Sprintf("failed to open debug file: %s", err.Error())
@@ -44,7 +45,7 @@ func main() {
 	var initialModel *ui.Model
 	if err != nil {
 		if errors.Is(err, config.ErrNotExists) {
-			initialModel = ui.NewModel(nil, cfg, nil, nil, log)
+			initialModel = ui.NewModel(nil, cfg, nil, log)
 			initialModel.SetupInitialInputs()
 		} else {
 			log.Warn("failed to load config:", sl.Err(err))
@@ -76,7 +77,7 @@ func main() {
 
 		log.Info("meta data downloaded")
 		
-		initialModel = ui.NewModel(s3Storage, cfg, meta.Salt, meta.Verifier, log)
+		initialModel = ui.NewModel(s3Storage, cfg, meta, log)
 	}
 
 	p := tea.NewProgram(initialModel)
