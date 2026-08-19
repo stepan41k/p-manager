@@ -1,8 +1,6 @@
-package ui
+package app
 
 import (
-	"log/slog"
-
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
@@ -31,6 +29,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.vaultList.SetSize(msg.Width, msg.Height)
 
+		 m.help.SetWidth(msg.Width ) 
+		
 		return m, nil
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
@@ -44,8 +44,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.state = authState
 		m.errorMessage = "Setup finished! Enter master password."
-		m.passInput.SetValue("")
-		m.passInput.Focus()
+		m.inputs[0].SetValue("")
+		m.inputs[0].Focus()
 
 		return m, textinput.Blink
 
@@ -105,13 +105,11 @@ func (m *Model) updateSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Setup.Enter):
 			if m.focusIndex == len(m.inputs)-1 {
 				m.errorMessage = "Saving configuration..."
-				m.log.Info("call setup cmd", slog.Int("ind", m.focusIndex))
 				return m, m.runSetupCmd()
 			}
 
 			m.inputs[m.focusIndex].Blur()
 			m.focusIndex++
-			m.log.Info("index", slog.Int("ind", m.focusIndex))
 			return m, m.inputs[m.focusIndex].Focus()
 
 		case key.Matches(msg, m.keys.Setup.Next):
@@ -145,14 +143,13 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Auth.Enter):
-			password := m.passInput.Value()
+			password := m.inputs[0].Value()
 
 			derivedKey := crypto.DeriveKey(password, m.meta.Salt)
 
 			if err := crypto.VerifyMasterKey(derivedKey, m.meta.Verifier); err != nil {
-				m.log.Error("Master key verification failed", "error", err, "salt_len", len(m.meta.Salt), "verifier_len", len(m.meta.Verifier))
 				m.errorMessage = "invalid master password"
-				m.passInput.SetValue("")
+				m.inputs[0].SetValue("")
 				return m, nil
 			}
 
@@ -178,7 +175,7 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	m.passInput, cmd = m.passInput.Update(msg)
+	m.inputs[0], cmd = m.inputs[0].Update(msg)
 	return m, cmd
 }
 
@@ -189,7 +186,7 @@ func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.OTP.Enter):
-			inputHash := crypto.HashOTP(m.otpInput.Value())
+			inputHash := crypto.HashOTP(m.inputs[0].Value())
 
 			if inputHash == m.expectedOTPHash {
 				m.state = vaultState
@@ -199,7 +196,7 @@ func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.registerCurrentDeviceCmd()
 			} else {
 				m.errorMessage = "Invalid code!"
-				m.otpInput.SetValue("")
+				m.inputs[0].SetValue("")
 				return m, nil
 			}
 		case key.Matches(msg, m.keys.OTP.Quit):
@@ -208,7 +205,7 @@ func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	m.otpInput, cmd = m.otpInput.Update(msg)
+	m.inputs[0], cmd = m.inputs[0].Update(msg)
 	return m, cmd
 }
 
@@ -218,7 +215,7 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keys.Vault.Create):
 			m.state = createState
-			m.setupInputs()
+			m.setupFormInputs(nil)
 			return m, nil
 		case key.Matches(msg, m.keys.Vault.Edit):
 			selected := m.vaultList.SelectedItem()
@@ -228,7 +225,13 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = editState
 			}
 
-			m.setupEditInputs()
+			m.setupFormInputs([]string{
+				m.selectedItem.Resource,
+				m.selectedItem.Email,
+				m.selectedItem.Username,
+				m.selectedItem.Password,
+			})
+
 			return m, nil
 		case key.Matches(msg, m.keys.Vault.Details):
 			selected := m.vaultList.SelectedItem()
