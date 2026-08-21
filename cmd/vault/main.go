@@ -11,17 +11,26 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/stepan41k/p-manager/internal/app"
 	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/lib/logger/sl"
 	"github.com/stepan41k/p-manager/internal/storage/s3"
-	"github.com/stepan41k/p-manager/internal/app"
+	"github.com/stepan41k/p-manager/internal/sys"
 )
 
 var (
+	version = "dev" 
 	debugFile = "debug.log"
 )
 
 func main() {
+	sys.DisableMemoryDumps()
+	
+	if len(os.Args) > 1 && (os.Args[1] == "-v" || os.Args[1] == "--version") {
+        fmt.Printf("p-manager version %s\n", version)
+        os.Exit(0)
+    }
+    
 	var errorMessage string
 	
 	defer func() {
@@ -87,7 +96,7 @@ func main() {
 		errorMessage := fmt.Sprintf("failed to run program: %s", err.Error())
 		panic(errorMessage)
 	}
-
+		
 	if err = file.Truncate(0); err != nil {
 		log.Warn("failed to truncate log file: %w", sl.Err(err))
 	}
