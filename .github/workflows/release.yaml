@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    name: Build Multiplatform & Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+  windows-installer:
+    name: Build Windows Inno Setup
+    needs: goreleaser
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Build Windows Binary
+        env:
+          CGO_ENABLED: '0'
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o p-manager.exe ./cmd/vault
+
+      - name: Compile Inno Setup Installer
+        run: |
+          iscc /DMyAppVersion=${{ github.ref_name }} installer.iss
+
+      - name: Upload Installer to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/p-manager-windows-amd64-setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
