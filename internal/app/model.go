@@ -4,12 +4,15 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"time"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 
+	"github.com/atotto/clipboard"
 	"github.com/stepan41k/p-manager/internal/config"
+	"github.com/stepan41k/p-manager/internal/crypto"
 	"github.com/stepan41k/p-manager/internal/storage/s3"
 )
 
@@ -44,9 +47,11 @@ type Model struct {
 	log     *slog.Logger
 
 	// Security and Session
-	masterKey       []byte
+	authKey         []byte
+	vaultKey        []byte
 	meta            s3.Metadata
 	expectedOTPHash [32]byte
+	lastActivity    time.Time
 
 	// State of forms and lists
 	inputs       []textinput.Model
@@ -112,4 +117,24 @@ func NewModel(s3 *s3.Storage, cfg *config.Config, meta *s3.Metadata, log *slog.L
 	}
 
 	return m
+}
+
+func (m *Model) WipeSecrets() {
+	m.log.Info("wiped secrets")
+
+	crypto.WipeBytes(m.authKey)
+	crypto.WipeBytes(m.vaultKey)
+
+	if m.selectedItem.Password != "" {
+		currentContent, err := clipboard.ReadAll()
+		if err == nil && currentContent == m.selectedItem.Password {
+			_ = clipboard.WriteAll("")
+		}
+	}
+
+	for i := range m.inputs {
+		m.inputs[i].SetValue("")
+	}
+	
+	m.errorMessage = ""
 }
