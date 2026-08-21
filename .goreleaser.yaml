@@ -1,0 +1,63 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: p-manager
+    main: ./cmd/vault
+    binary: p-manager
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE*
+
+nfpms:
+  - id: packages
+    package_name: p-manager
+    vendor: "stepan41k"
+    homepage: "https://github.com/stepan41k/p-manager"
+    maintainer: "stepan41k <stepan41kr@gmail.com>"
+    description: "Password Manager TUI application built with Bubble Tea"
+    license: "Apache-2.0"
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+
+brews:
+  - name: p-manager
+    repository:
+      owner: stepan41k
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/stepan41k/p-manager"
+    description: "Password Manager TUI application built with Bubble Tea"
+    license: "Apache-2.0"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
