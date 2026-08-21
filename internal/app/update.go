@@ -1,10 +1,13 @@
 package app
 
 import (
+	"time"
+
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/atotto/clipboard"
 	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/crypto"
 
@@ -15,6 +18,10 @@ type vaultLoadedMsg []list.Item
 type vaultErrorMsg error
 type otpEmailSentMsg struct{}
 type deviceRegisteredMsg struct{}
+type checkInactivityMsg struct{}
+type clearClipboardMsg struct {
+	copiedPassword string
+}
 type setupFinishedMsg struct {
 	Storage VaultStorage
 	Config  config.Config
@@ -22,31 +29,53 @@ type setupFinishedMsg struct {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 
 		m.vaultList.SetSize(msg.Width, msg.Height)
+		m.help.SetWidth(msg.Width)
+		m.lastActivity = time.Now()
 
-		 m.help.SetWidth(msg.Width ) 
-		
-		return m, nil
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
+			m.WipeSecrets()
 			return m, tea.Quit
 		}
+		m.lastActivity = time.Now()
+
+	case checkInactivityMsg:
+		if m.state != authState && m.state != setupState {
+			m.log.Info("since:", "time", time.Since(m.lastActivity))
+			if time.Since(m.lastActivity) >= 5*time.Minute {
+				m.WipeSecrets()
+				m.vaultList.SetItems([]list.Item{})
+				m.state = authState
+				m.errorMessage = "Vault locked due to inactivity"
+				return m, nil
+			}
+		}
+		cmds = append(cmds, checkInactivityTicker())
+
+	case clearClipboardMsg:
+		currentContent, err := clipboard.ReadAll()
+
+		if err == nil && currentContent == msg.copiedPassword {
+			_ = clipboard.WriteAll("")
+			m.errorMessage = "Clipboard cleared for security"
+		}
+		return m, nil
 
 	case setupFinishedMsg:
 		m.storage = msg.Storage
 		m.config = &msg.Config
 		m.meta = msg.Meta
-
 		m.state = authState
+		m.setupAuthInput()
 		m.errorMessage = "Setup finished! Enter master password."
-		m.inputs[0].SetValue("")
-		m.inputs[0].Focus()
-
 		return m, textinput.Blink
 
 	case deviceRegisteredMsg:
@@ -66,34 +95,41 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vaultList.Styles.Title = m.styles.Title
 		m.state = vaultState
 		m.errorMessage = ""
-		return m, nil
+		m.lastActivity = time.Now()
+		m.log.Info("start ticker")
+		cmds = append(cmds, checkInactivityTicker())
 
 	case vaultErrorMsg:
 		m.errorMessage = "Error: " + msg.Error()
 		return m, nil
 	}
 
+	var subCmd tea.Cmd
+
 	switch m.state {
 	case setupState:
-		return m.updateSetup(msg)
+		_, subCmd = m.updateSetup(msg)
 	case authState:
-		return m.updateAuth(msg)
+		_, subCmd = m.updateAuth(msg)
 	case otpState:
-		return m.updateOTP(msg)
+		_, subCmd = m.updateOTP(msg)
 	case vaultState:
-		return m.updateVault(msg)
+		_, subCmd = m.updateVault(msg)
 	case detailsState:
-		return m.updateDetails(msg)
+		_, subCmd = m.updateDetails(msg)
 	case createState:
-		return m.updateCreate(msg)
+		_, subCmd = m.updateCreate(msg)
 	case editState:
-		return m.updateEdit(msg)
+		_, subCmd = m.updateEdit(msg)
 	case deleteState:
-		return m.updateDelete(msg)
+		_, subCmd = m.updateDelete(msg)
 	}
 
-	return m, nil
+	if subCmd != nil {
+		cmds = append(cmds, subCmd)
+	}
 
+	return m, tea.Batch(cmds...)
 }
 
 func (m *Model) updateSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -145,15 +181,21 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Auth.Enter):
 			password := m.inputs[0].Value()
 
-			derivedKey := crypto.DeriveKey(password, m.meta.Salt)
+			authKey, vaultKey, err := crypto.DeriveMasterKeys(password, m.meta.Salt)
+			if err != nil {
+				m.errorMessage = "failed to derive key"
+				m.inputs[0].SetValue("")
+				return m, nil
+			}
 
-			if err := crypto.VerifyMasterKey(derivedKey, m.meta.Verifier); err != nil {
+			if err := crypto.VerifyMasterKey(authKey, m.meta.Verifier); err != nil {
 				m.errorMessage = "invalid master password"
 				m.inputs[0].SetValue("")
 				return m, nil
 			}
 
-			m.masterKey = derivedKey
+			m.authKey = authKey
+			m.vaultKey = vaultKey
 
 			if m.checkIsTrustedDevice() {
 				m.state = vaultState
@@ -267,8 +309,15 @@ func (m *Model) updateDetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = vaultState
 			return m, nil
 		case key.Matches(msg, m.keys.Details.Copy):
-			//TODO: implement copying into buffer
-			return m, nil
+			err := clipboard.WriteAll(m.selectedItem.Password)
+			if err != nil {
+				m.errorMessage = "failed to copy to clipboard"
+				return m, nil
+			}
+
+			m.errorMessage = "Password copied! Clearing in 30s..."
+
+			return m, clearClipboardCmd(m.selectedItem.Password, 30*time.Second)
 		}
 	}
 
@@ -384,4 +433,16 @@ func (m *Model) updateDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func checkInactivityTicker() tea.Cmd {
+	return tea.Tick(10*time.Second, func(t time.Time) tea.Msg {
+		return checkInactivityMsg{}
+	})
+}
+
+func clearClipboardCmd(copiedPassword string, delay time.Duration) tea.Cmd {
+	return tea.Tick(delay, func(t time.Time) tea.Msg {
+		return clearClipboardMsg{copiedPassword: copiedPassword}
+	})
 }
