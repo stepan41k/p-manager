@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/smtp"
-	"slices"
 	"time"
 
 	"charm.land/bubbles/v2/list"
@@ -19,21 +17,6 @@ import (
 	"github.com/stepan41k/p-manager/internal/storage/s3"
 	"github.com/zalando/go-keyring"
 )
-
-func (m *Model) checkIsTrustedDevice() bool {
-	deviceToken, err := keyring.Get("p-manager", "device_token")
-	if err != nil || deviceToken == "" {
-		return false
-	}
-
-	tokenHash := fmt.Sprintf("%x", sha256.Sum256([]byte(deviceToken)))
-
-	if c := slices.Contains(m.meta.TrustedDeviceHashes, tokenHash); c {
-		return true
-	}
-
-	return false
-}
 
 func (m *Model) runSetupCmd() tea.Cmd {
 	return func() tea.Msg {
@@ -65,14 +48,47 @@ func (m *Model) runSetupCmd() tea.Cmd {
 			return vaultErrorMsg(err)
 		}
 
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
 		storage, err := s3.New(context.Background(), &cfg.S3Config, m.log)
 		if err != nil {
 			return vaultErrorMsg(err)
 		}
 
+		existingMeta, err := storage.DownloadMeta(ctx)
+
+		if err == nil && existingMeta != nil {
+			authKey, _, err := crypto.DeriveMasterKeys(master, existingMeta.Salt)
+			if err != nil || crypto.VerifyMasterKey(authKey, existingMeta.Verifier) != nil {
+				return vaultErrorMsg(fmt.Errorf("неверный мастер-пароль от существующего сейфа"))
+			}
+
+			rawToken, _ := crypto.GenerateSalt(32)
+			tokenStr := fmt.Sprintf("%x", rawToken)
+			tokenHash := fmt.Sprintf("%x", sha256.Sum256([]byte(tokenStr)))
+
+			_ = keyring.Set("p-manager", "device_token", tokenStr)
+			existingMeta.TrustedDeviceHashes = append(existingMeta.TrustedDeviceHashes, tokenHash)
+
+			metaData, _ := json.Marshal(existingMeta)
+			if err := storage.Upload(ctx, "meta.json", bytes.NewReader(metaData)); err != nil {
+				return vaultErrorMsg(err)
+			}
+
+			return setupFinishedMsg{
+				Storage: storage,
+				Config:  cfg,
+				Meta:    *existingMeta,
+			}
+		}
+
 		salt, _ := crypto.GenerateSalt(16)
-		masterKey := crypto.DeriveKey(master, salt)
-		verifier, _ := crypto.Encrypt([]byte("OK"), masterKey)
+		authKey, vaultKey, _ := crypto.DeriveMasterKeys(master, salt)
+		verifier, _ := crypto.Encrypt([]byte("OK"), authKey)
+
+		emptyVault, _ := json.Marshal([]VaultItem{})
+		encryptedVault, _ := crypto.Encrypt(emptyVault, vaultKey)
 
 		meta := s3.Metadata{
 			Salt:                salt,
@@ -80,56 +96,21 @@ func (m *Model) runSetupCmd() tea.Cmd {
 			TrustedDeviceHashes: []string{},
 		}
 
-		m.meta = meta
+		metaData, _ := json.Marshal(meta)
 
-		metaData, _ := json.Marshal(m.meta)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = storage.Upload(ctx, "meta.json", bytes.NewReader(metaData))
-		if err != nil {
-			m.log.Warn("failed to upload metadata", sl.Err(err))
+		if err := storage.Upload(ctx, "meta.json", bytes.NewReader(metaData)); err != nil {
+			return vaultErrorMsg(err)
+		}
+		if err := storage.Upload(ctx, "vault.enc", bytes.NewReader(encryptedVault)); err != nil {
 			return vaultErrorMsg(err)
 		}
 
 		return setupFinishedMsg{
 			Storage: storage,
 			Config:  cfg,
-			Meta:    m.meta,
+			Meta:    meta,
 		}
 	}
-}
-
-func (m *Model) sendOTPEmail(code string) error {
-	smtpPassword, err := keyring.Get("p-manager", "smtp_password")
-	if err != nil {
-		m.log.Warn("failed to get password", sl.Err(err))
-		return fmt.Errorf("smtp password not found in keyring: %w", err)
-	}
-
-	cfg := m.config.SMTPConfig
-
-	host := cfg.SMTPHost
-	port := cfg.SMTPPort
-	from := cfg.SMTPSender
-	to := cfg.Email
-
-	subject := "Subject: Vault Access Code\n"
-	mime := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
-	body := fmt.Sprintf("Your security code is: <b>%s</b>", code)
-	msg := []byte(subject + mime + body)
-
-	auth := smtp.PlainAuth("", from, smtpPassword, host)
-	addr := fmt.Sprintf("%s:%s", host, port)
-
-	err = smtp.SendMail(addr, auth, from, []string{to}, msg)
-	if err != nil {
-		m.log.Warn("failed to send mail:", sl.Err(err))
-		return fmt.Errorf("failed to send mail: %w", err)
-	}
-
-	return nil
 }
 
 func (m *Model) deleteAndUploadCmd() tea.Cmd {
@@ -147,7 +128,7 @@ func (m *Model) deleteAndUploadCmd() tea.Cmd {
 		}
 
 		jsonData, _ := json.Marshal(newEntries)
-		encrypted, err := crypto.Encrypt(jsonData, m.masterKey)
+		encrypted, err := crypto.Encrypt(jsonData, m.vaultKey)
 		if err != nil {
 			return vaultErrorMsg(err)
 		}
@@ -186,7 +167,7 @@ func (m *Model) updateAndUploadCmd(updatedEntry VaultItem) tea.Cmd {
 		}
 
 		jsonData, _ := json.Marshal(allEntries)
-		encrypted, err := crypto.Encrypt(jsonData, m.masterKey)
+		encrypted, err := crypto.Encrypt(jsonData, m.vaultKey)
 		if err != nil {
 			return vaultErrorMsg(err)
 		}
@@ -226,7 +207,7 @@ func (m *Model) saveAndUploadCmd(entry VaultItem) tea.Cmd {
 			return vaultErrorMsg(err)
 		}
 
-		encryptedData, err := crypto.Encrypt(jsonData, m.masterKey)
+		encryptedData, err := crypto.Encrypt(jsonData, m.vaultKey)
 		if err != nil {
 			m.log.Warn("failed to encrypt data: %w", sl.Err(err))
 			return vaultErrorMsg(err)
@@ -271,7 +252,7 @@ func (m *Model) fetchVaultCmd() tea.Cmd {
 			return vaultErrorMsg(err)
 		}
 
-		decryptedData, err := crypto.Decrypt(encryptedData, m.masterKey)
+		decryptedData, err := crypto.Decrypt(encryptedData, m.vaultKey)
 		if err != nil {
 			m.log.Warn("error decrypting data: ", sl.Err(err))
 			return vaultErrorMsg(fmt.Errorf("error decrypting data: check password"))
@@ -289,38 +270,5 @@ func (m *Model) fetchVaultCmd() tea.Cmd {
 		}
 
 		return vaultLoadedMsg(items)
-	}
-}
-
-func (m *Model) registerCurrentDeviceCmd() tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-
-		rawToken, _ := crypto.GenerateSalt(32)
-		tokenStr := fmt.Sprintf("%x", rawToken)
-		tokenHash := fmt.Sprintf("%x", sha256.Sum256([]byte(tokenStr)))
-
-		_ = keyring.Set("p-manager", "device_token", tokenStr)
-
-		m.meta.TrustedDeviceHashes = append(m.meta.TrustedDeviceHashes, tokenHash)
-
-		metaData, _ := json.Marshal(m.meta)
-		if err := m.storage.Upload(ctx, "meta.json", bytes.NewReader(metaData)); err != nil {
-			return vaultErrorMsg(err)
-		}
-
-		return deviceRegisteredMsg{}
-	}
-}
-
-func (m *Model) revokeAllDevicesCmd() tea.Cmd {
-	return func() tea.Msg {
-		m.meta.TrustedDeviceHashes = []string{}
-
-		metaData, _ := json.Marshal(m.meta)
-		_ = m.storage.Upload(context.Background(), "meta.json", bytes.NewReader(metaData))
-
-		return nil
 	}
 }
