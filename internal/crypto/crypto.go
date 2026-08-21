@@ -1,11 +1,19 @@
 package crypto
 
 import (
+	"crypto/hkdf"
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 
 	"golang.org/x/crypto/argon2"
 )
+
+func WipeBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
+}
 
 func GenerateSalt(length int) ([]byte, error) {
 	salt := make([]byte, length)
@@ -31,6 +39,18 @@ func VerifyMasterKey(key []byte, encryptedVerifier []byte) error {
 	return nil
 }
 
-func DeriveKey(password string, salt []byte) []byte {
-	return argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, 32)
+func DeriveMasterKeys(password string, salt []byte) ([]byte, []byte, error) {
+	masterSecret := argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, 32)
+
+	authKey, err := hkdf.Key(sha256.New, masterSecret, salt, "p-manager-auth", 32)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	vaultKey, err := hkdf.Key(sha256.New, masterSecret, salt, "p-manager-vault", 32)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return authKey, vaultKey, nil
 }
