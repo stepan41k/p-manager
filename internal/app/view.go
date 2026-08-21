@@ -85,15 +85,24 @@ func (m *Model) renderForm(title string) string {
 		MarginBottom(1).
 		Render("── " + title + " ──")
 
-	labels := []string{"Service:", "Email:", "Username:", "Password:"}
-	
+	var labels []string
+	if m.state == createState || m.state == editState {
+		labels = []string{"Service:", "Email:", "Username:", "Password:"}
+	}
+
 	var inputViews []string
 	for i := range m.inputs {
 		prefix := "  "
+
 		if i == m.focusIndex {
 			prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> ")
 		}
-		label := s.DetailLabel.Render(labels[i])
+
+		label := ""
+		if i < len(labels) {
+			label = s.DetailLabel.Render(labels[i]) + " "
+		}
+
 		row := fmt.Sprintf("%s%s %s", prefix, label, m.inputs[i].View())
 		inputViews = append(inputViews, row)
 	}
@@ -125,9 +134,9 @@ func (m *Model) authView() string {
 	}
 
 	labelStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			Bold(true)
-	
+		Foreground(lipgloss.Color("241")).
+		Bold(true)
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		header,
