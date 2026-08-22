@@ -145,6 +145,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, subCmd = m.updateOTP(msg)
 	case vaultState:
 		_, subCmd = m.updateVault(msg)
+	case customizeKeymapsState:
+		_, subCmd = m.updateKeymaps(msg)
+	case genConfigState:
+		_, subCmd = m.updateGenConfig(msg)
 	case detailsState:
 		_, subCmd = m.updateDetails(msg)
 	case createState:
@@ -219,15 +223,21 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			if err := crypto.VerifyMasterKey(authKey, m.meta.Verifier); err != nil {
-				if m.authAttempts >= 5 {
-					return m, accessDeniedCmd()
-				}
-				m.errorMessage = "invalid master password"
 				m.authAttempts++
 				m.inputs[0].SetValue("")
+
+				if m.authAttempts >= 5 {
+					m.WipeSecrets()
+					return m, tea.Quit
+				}
+				
+				attemptsLeft := 5 - m.authAttempts
+				m.errorMessage = fmt.Sprintf("Invalid password! Attempts remaining: %d", attemptsLeft)
+
 				return m, nil
 			}
 
+			m.authAttempts = 0
 			m.authKey = authKey
 			m.vaultKey = vaultKey
 
@@ -348,8 +358,17 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = deleteState
 				return m, nil
 			}
-		}
 
+		case key.Matches(msg, m.keys.Vault.ConfigKeys):
+			m.state = customizeKeymapsState
+			m.setupKeymapList()
+			return m, nil
+
+		case key.Matches(msg, m.keys.Vault.GenConfig):
+			m.state = genConfigState
+			m.setupGenConfig()
+			return m, nil
+		}
 	}
 
 	var cmd tea.Cmd
@@ -374,7 +393,7 @@ func (m *Model) updateDetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.errorMessage = "Password copied! Clearing in 30s..."
 
-			return m, clearClipboardCmd(m.selectedItem.Password, 30*time.Second)
+			return m, clearClipboardTicker(m.selectedItem.Password, 30*time.Second)
 		case key.Matches(msg, m.keys.Details.View):
 			m.showPassword = !m.showPassword
 
@@ -427,13 +446,18 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, m.keys.Create.Generate):
 			if m.focusIndex == 3 {
-				password, err := crypto.GeneratePassword(32)
+				opts := m.config.Generator
+				if opts.Length == 0 {
+					opts = crypto.DefaultGeneratorOptions()
+				}
+
+				password, err := crypto.GeneratePasswordWithOptions(opts)
 				if err != nil {
-					m.errorMessage = "failed to generate password"
+					m.errorMessage = "Select at least one character set!"
 					return m, nil
 				}
-				m.inputs[3].SetValue(password)
 
+				m.inputs[3].SetValue(password)
 				m.maskPasswordAt = time.Now().Add(2 * time.Second)
 				return m, checkPasswordTicker(2 * time.Second)
 			}
@@ -511,13 +535,18 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keys.Edit.Generate):
 			if m.focusIndex == 3 {
-				password, err := crypto.GeneratePassword(32)
+				opts := m.config.Generator
+				if opts.Length == 0 {
+					opts = crypto.DefaultGeneratorOptions()
+				}
+
+				password, err := crypto.GeneratePasswordWithOptions(opts)
 				if err != nil {
-					m.errorMessage = "failed to generate password"
+					m.errorMessage = "Select at least one character set!"
 					return m, nil
 				}
-				m.inputs[3].SetValue(password)
 
+				m.inputs[3].SetValue(password)
 				m.maskPasswordAt = time.Now().Add(2 * time.Second)
 				return m, checkPasswordTicker(2 * time.Second)
 			}
@@ -571,32 +600,111 @@ func (m *Model) updateDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func checkInactivityTicker(delay time.Duration) tea.Cmd {
-	return tea.Tick(delay, func(t time.Time) tea.Msg {
-		return checkInactivityMsg{}
-	})
-}
+func (m *Model) updateKeymaps(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		k := msg.String()
 
-func hidePasswordTicker(delay time.Duration) tea.Cmd {
-	return tea.Tick(delay, func(t time.Time) tea.Msg {
-		return hidePasswordMsg{}
-	})
-}
+		if m.isRebinding {
+			if key.Matches(msg, m.keys.KeyMapConfig.Quit) {
+				m.isRebinding = false
+				m.errorMessage = ""
+				return m, nil
+			}
 
-func clearClipboardCmd(copiedPassword string, delay time.Duration) tea.Cmd {
-	return tea.Tick(delay, func(t time.Time) tea.Msg {
-		return clearClipboardMsg{copiedPassword: copiedPassword}
-	})
-}
+			m.bindList[m.keymapIndex].Binding.SetKeys(k)
+			m.isRebinding = false
+			m.errorMessage = fmt.Sprintf("Key for '%s' changed to '%s'", m.bindList[m.keymapIndex].Name, k)
 
-func checkPasswordTicker(delay time.Duration) tea.Cmd {
-	return tea.Tick(delay, func(t time.Time) tea.Msg {
-		return checkPasswordMsg{}
-	})
-}
+			// TODO: save keymaps in config.jsonw
+			// config.SaveConfig(*m.config)
+			return m, nil
+		}
 
-func accessDeniedCmd() tea.Cmd {
-	return func() tea.Msg {
-		return accessDeniedMsg{}
+		switch {
+		case key.Matches(msg, m.keys.KeyMapConfig.Quit):
+			m.state = vaultState
+			m.errorMessage = ""
+			return m, nil
+
+		case key.Matches(msg, m.keys.KeyMapConfig.Previous):
+			if m.keymapIndex > 0 {
+				m.keymapIndex--
+			}
+			return m, nil
+
+		case key.Matches(msg, m.keys.KeyMapConfig.Next):
+			if m.keymapIndex < len(m.bindList)-1 {
+				m.keymapIndex++
+			}
+			return m, nil
+
+		case key.Matches(msg, m.keys.KeyMapConfig.Save):
+			m.isRebinding = true
+			m.errorMessage = fmt.Sprintf("Press new key for '%s' (esc to cancel)...", m.bindList[m.keymapIndex].Name)
+			return m, nil
+		}
 	}
+	return m, nil
+}
+
+func (m *Model) updateGenConfig(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch {
+		case key.Matches(msg, m.keys.GenConfig.Quit):
+			if m.config != nil {
+				m.config.Generator = m.genOpts
+				_ = config.SaveConfig(*m.config)
+			}
+			m.state = vaultState
+			return m, nil
+
+		case key.Matches(msg, m.keys.GenConfig.Previous):
+			if m.genOptIndex > 0 {
+				m.genOptIndex--
+			}
+			return m, nil
+
+		case key.Matches(msg, m.keys.GenConfig.Next):
+			if m.genOptIndex < 4 {
+				m.genOptIndex++
+			}
+			return m, nil
+
+		case key.Matches(msg, m.keys.GenConfig.ReduceLength):
+			if m.genOptIndex == 0 && m.genOpts.Length > 8 {
+				m.genOpts.Length--
+				m.previewPass, _ = crypto.GeneratePasswordWithOptions(m.genOpts)
+			}
+			return m, nil
+
+		case key.Matches(msg, m.keys.GenConfig.IncreaseLength):
+			if m.genOptIndex == 0 && m.genOpts.Length < 64 {
+				m.genOpts.Length++
+				m.previewPass, _ = crypto.GeneratePasswordWithOptions(m.genOpts)
+			}
+			return m, nil
+
+		case key.Matches(msg, m.keys.GenConfig.Switch):
+			switch m.genOptIndex {
+			case 1:
+				m.genOpts.UseLower = !m.genOpts.UseLower
+			case 2:
+				m.genOpts.UseUpper = !m.genOpts.UseUpper
+			case 3:
+				m.genOpts.UseDigits = !m.genOpts.UseDigits
+			case 4:
+				m.genOpts.UseSymbols = !m.genOpts.UseSymbols
+			}
+
+			m.previewPass, _ = crypto.GeneratePasswordWithOptions(m.genOpts)
+			return m, nil
+
+		case key.Matches(msg, m.keys.GenConfig.Genrate):
+			m.previewPass, _ = crypto.GeneratePasswordWithOptions(m.genOpts)
+			return m, nil
+		}
+	}
+	return m, nil
 }
