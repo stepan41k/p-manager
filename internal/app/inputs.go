@@ -67,6 +67,9 @@ func (m *Model) setupFormInputs(values []string) {
 		t.Placeholder = placeholders[i]
 		
 		if len(values) > i {
+			if i == 3 {
+				t.EchoMode = textinput.EchoPassword
+			}
 			t.SetValue(values[i])
 		}
 
