@@ -39,6 +39,12 @@ func (m *Model) View() tea.View {
 		v.AltScreen = true
 
 		return v
+	case customizeKeymapsState:
+		content = m.keymapView()
+		footer = m.help.View(m.keys.KeyMapConfig)
+	case genConfigState:
+		content = m.genConfigView()
+		footer = m.help.View(m.keys.GenConfig)
 	case detailsState:
 		content = m.detailsView()
 		footer = m.help.View(m.keys.Details)
@@ -216,4 +222,100 @@ func (m *Model) deleteView() string {
 	formContent := lipgloss.JoinVertical(lipgloss.Left, header, question)
 
 	return s.Card.Render(formContent)
+}
+
+func (m *Model) keymapView() string {
+	s := m.styles
+	header := s.Title.Foreground(lipgloss.Color("205")).Render("── " + " KEYBINDINGS CONFIGURATION" + " ──")
+
+	var rows []string
+	currentCategory := ""
+
+	for i, item := range m.bindList {
+		if item.Category != currentCategory {
+			currentCategory = item.Category
+			catHeader := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("205")).
+				Bold(true).
+				MarginTop(1).
+				Render(fmt.Sprintf("[%s]", currentCategory))
+			rows = append(rows, catHeader)
+		}
+
+		prefix := "  "
+		nameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Width(20)
+		keyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("81")).Bold(true)
+
+		if i == m.keymapIndex {
+			prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> ")
+			nameStyle = nameStyle.Foreground(lipgloss.Color("255")).Bold(true)
+		}
+
+		currentKey := item.Binding.Keys()[0]
+
+		row := fmt.Sprintf("%s%s : %s", prefix, nameStyle.Render(item.Name), keyStyle.Render(currentKey))
+		rows = append(rows, row)
+	}
+
+	table := lipgloss.JoinVertical(lipgloss.Left, rows...)
+
+	statusText := "↑/↓: choose | enter: rebind | esc: save and back"
+	if m.isRebinding {
+		statusText = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true).Render(m.errorMessage)
+	} else if m.errorMessage != "" {
+		statusText = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(m.errorMessage)
+	}
+
+	help := lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("240")).MarginTop(1).Render(statusText)
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		header,
+		table,
+		help,
+	)
+
+	return s.Card.Render(content)
+}
+
+func (m *Model) genConfigView() string {
+	s := m.styles
+	header := s.Title.Foreground(lipgloss.Color("205")).Render("── PASSWORD GENERATOR CUSTOMIZATION ──")
+
+	renderCheckbox := func(label string, checked bool, isSelected bool) string {
+		box := "[ ]"
+		if checked {
+			box = "[x]"
+		}
+
+		prefix := "  "
+		if isSelected {
+			prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> ")
+		}
+
+		return fmt.Sprintf("%s%s %s", prefix, lipgloss.NewStyle().Foreground(lipgloss.Color("81")).Render(box), label)
+	}
+
+	lengthStr := fmt.Sprintf("Password Length: < %d >", m.genOpts.Length)
+	if m.genOptIndex == 0 {
+		lengthStr = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> " + lengthStr)
+	} else {
+		lengthStr = "  " + lengthStr
+	}
+
+	rows := []string{
+		header,
+		"",
+		lengthStr,
+		renderCheckbox("Lowercase letters (a-z)", m.genOpts.UseLower, m.genOptIndex == 1),
+		renderCheckbox("Capital letters (A-Z)", m.genOpts.UseUpper, m.genOptIndex == 2),
+		renderCheckbox("Numbers (0-9)", m.genOpts.UseDigits, m.genOptIndex == 3),
+		renderCheckbox("Special characters (!@#$)", m.genOpts.UseSymbols, m.genOptIndex == 4),
+		"",
+		s.DetailLabel.Render("Preview: ") + s.DetailKey.Render(m.previewPass),
+		"",
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	return s.Card.Render(content)
 }
