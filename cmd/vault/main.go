@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	version   = "dev"
+	version   = "0.3.1"
 	debugFile = "debug.log"
 )
 
@@ -41,9 +41,10 @@ func main() {
 	log := setupLogger(file)
 
 	log.Info("attempting to parse config")
-	cfg, err := config.MustLoad()
 
 	var initialModel *app.Model
+	
+	cfg, err := config.MustLoad()
 	if err != nil {
 		if errors.Is(err, config.ErrNotExists) {
 			initialModel = app.NewModel(nil, cfg, nil, log)
@@ -72,7 +73,8 @@ func main() {
 		meta, err := s3Storage.DownloadMeta(ctx)
 		if err != nil {
 			log.Error("failed to download metadata from S3:", sl.Err(err))
-			fmt.Fprintf(os.Stderr, "error downloading metadata from S3: %v\n", err)
+			fmt.Fprintf(os.Stderr, "\n❌ Network Error: Unable to connect to S3 storage.\n")
+			fmt.Fprintf(os.Stderr, "   Please check your internet connection and try again.\n\n")
 			os.Exit(1)
 		}
 
