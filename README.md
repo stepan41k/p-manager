@@ -60,5 +60,3 @@ After setup, each login requires your master password and the one-time code emai
 ## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
-
-<img width="615" height="522" alt="image" src="https://github.com/user-attachments/assets/5baf85aa-3e6a-4db7-8835-691da8c3e768" />
