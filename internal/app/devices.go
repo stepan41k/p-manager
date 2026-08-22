@@ -6,11 +6,12 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"slices"
+	"os"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stepan41k/p-manager/internal/crypto"
+	"github.com/stepan41k/p-manager/internal/storage/s3"
 	"github.com/zalando/go-keyring"
 )
 
@@ -21,9 +22,16 @@ func (m *Model) checkIsTrustedDevice() bool {
 	}
 
 	tokenHash := fmt.Sprintf("%x", sha256.Sum256([]byte(deviceToken)))
+	now := time.Now()
 
-	if c := slices.Contains(m.meta.TrustedDeviceHashes, tokenHash); c {
-		return true
+	for _, dev := range m.meta.TrustedDevices {
+		if dev.Hash == tokenHash {
+			if now.After(dev.ExpiresAt) {
+				m.log.Info("Device token expired", "device", dev.Name)
+				return false
+			}
+			return true
+		}
 	}
 
 	return false
@@ -31,16 +39,39 @@ func (m *Model) checkIsTrustedDevice() bool {
 
 func (m *Model) registerCurrentDeviceCmd() tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		rawToken, _ := crypto.GenerateSalt(32)
 		tokenStr := fmt.Sprintf("%x", rawToken)
 		tokenHash := fmt.Sprintf("%x", sha256.Sum256([]byte(tokenStr)))
 
-		_ = keyring.Set("p-manager", "device_token", tokenStr)
+		hostname, _ := os.Hostname()
+		if hostname == "" {
+			hostname = "unknown-device"
+		}
 
-		m.meta.TrustedDeviceHashes = append(m.meta.TrustedDeviceHashes, tokenHash)
+		err := keyring.Set("p-manager", "device_token", tokenStr)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+
+		now := time.Now()
+		newDevice := s3.TrustedDevice{
+			Hash:      tokenHash,
+			Name:      hostname,
+			CreatedAt: now,
+			ExpiresAt: now.Add(30 * 24 * time.Hour), // Токен действителен 30 дней!
+		}
+
+		var updatedDevices []s3.TrustedDevice
+		for _, dev := range m.meta.TrustedDevices {
+			if now.Before(dev.ExpiresAt) && dev.Name != hostname {
+				updatedDevices = append(updatedDevices, dev)
+			}
+		}
+		updatedDevices = append(updatedDevices, newDevice)
+		m.meta.TrustedDevices = updatedDevices
 
 		metaData, _ := json.Marshal(m.meta)
 		if err := m.storage.Upload(ctx, "meta.json", bytes.NewReader(metaData)); err != nil {
@@ -53,7 +84,7 @@ func (m *Model) registerCurrentDeviceCmd() tea.Cmd {
 
 func (m *Model) revokeAllDevicesCmd() tea.Cmd {
 	return func() tea.Msg {
-		m.meta.TrustedDeviceHashes = []string{}
+		m.meta.TrustedDevices= []s3.TrustedDevice{}
 
 		metaData, _ := json.Marshal(m.meta)
 		_ = m.storage.Upload(context.Background(), "meta.json", bytes.NewReader(metaData))
