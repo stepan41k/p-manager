@@ -1,6 +1,8 @@
 package app
 
 import (
+	"crypto/subtle"
+	"fmt"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -19,6 +21,7 @@ type vaultErrorMsg error
 type otpEmailSentMsg struct{}
 type deviceRegisteredMsg struct{}
 type checkInactivityMsg struct{}
+type hidePasswordMsg struct{}
 type clearClipboardMsg struct {
 	copiedPassword string
 }
@@ -49,7 +52,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case checkInactivityMsg:
 		if m.state != authState && m.state != setupState {
-			m.log.Info("since:", "time", time.Since(m.lastActivity))
 			if time.Since(m.lastActivity) >= 5*time.Minute {
 				m.WipeSecrets()
 				m.vaultList.SetItems([]list.Item{})
@@ -58,7 +60,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		}
-		cmds = append(cmds, checkInactivityTicker())
+		cmds = append(cmds, checkInactivityTicker(10*time.Second))
 
 	case clearClipboardMsg:
 		currentContent, err := clipboard.ReadAll()
@@ -68,6 +70,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errorMessage = "Clipboard cleared for security"
 		}
 		return m, nil
+
+	case hidePasswordMsg:
+		now := time.Now()
+
+		if m.showPassword && now.After(m.hidePasswordAt) {
+			m.showPassword = false
+		}
+
+		return m, hidePasswordTicker(5 * time.Second)
 
 	case setupFinishedMsg:
 		m.storage = msg.Storage
@@ -97,7 +108,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.errorMessage = ""
 		m.lastActivity = time.Now()
 		m.log.Info("start ticker")
-		cmds = append(cmds, checkInactivityTicker())
+		cmds = append(cmds, checkInactivityTicker(10*time.Second))
 
 	case vaultErrorMsg:
 		m.errorMessage = "Error: " + msg.Error()
@@ -205,6 +216,10 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			code, _ := crypto.GenerateOTP()
 			m.expectedOTPHash = crypto.HashOTP(code)
+
+			m.otpExpiresAt = time.Now().Add(5 * time.Minute)
+			m.otpAttempts = 0
+
 			m.errorMessage = "Sending code to email..."
 
 			return m, func() tea.Msg {
@@ -228,16 +243,34 @@ func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.OTP.Enter):
+			if time.Now().After(m.otpExpiresAt) {
+				m.errorMessage = "Code expired! Please enter master password again."
+				m.WipeSecrets()
+				m.state = authState
+				return m, nil
+			}
+
+			m.otpAttempts++
+			if m.otpAttempts > 5 {
+				m.errorMessage = "Too many failed attempts! Access blocked."
+				m.WipeSecrets()
+				m.state = authState
+				return m, nil
+			}
+
 			inputHash := crypto.HashOTP(m.inputs[0].Value())
 
-			if inputHash == m.expectedOTPHash {
+			isEqual := subtle.ConstantTimeCompare(inputHash[:], m.expectedOTPHash[:]) == 1
+
+			if isEqual {
 				m.state = vaultState
 				m.expectedOTPHash = [32]byte{}
-				m.errorMessage = "Loading data..."
+				m.errorMessage = "Code verified! Registering device..."
 
 				return m, m.registerCurrentDeviceCmd()
 			} else {
-				m.errorMessage = "Invalid code!"
+				attemptsLeft := 3 - m.otpAttempts
+				m.errorMessage = fmt.Sprintf("Invalid 2FA code! Attempts remaining: %d", attemptsLeft)
 				m.inputs[0].SetValue("")
 				return m, nil
 			}
@@ -277,6 +310,7 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, m.keys.Vault.Details):
 			selected := m.vaultList.SelectedItem()
+			m.showPassword = false
 
 			if item, ok := selected.(VaultItem); ok {
 				m.selectedItem = item
@@ -318,6 +352,14 @@ func (m *Model) updateDetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errorMessage = "Password copied! Clearing in 30s..."
 
 			return m, clearClipboardCmd(m.selectedItem.Password, 30*time.Second)
+		case key.Matches(msg, m.keys.Details.View):
+			m.showPassword = !m.showPassword
+
+			if m.showPassword {
+				m.hidePasswordAt = time.Now().Add(10 * time.Second)
+			}
+
+			return m, hidePasswordTicker(5 * time.Second)
 		}
 	}
 
@@ -347,7 +389,12 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, m.keys.Create.Generate):
 			if m.focusIndex == 3 {
-				m.inputs[3].SetValue(crypto.GeneratePassword(32))
+				password, err := crypto.GeneratePassword(32)
+				if err != nil {
+					m.errorMessage = "failed to generate password"
+					return m, nil
+				}
+				m.inputs[3].SetValue(password)
 				return m, nil
 			}
 
@@ -398,7 +445,12 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, m.keys.Edit.Generate):
 			if m.focusIndex == 3 {
-				m.inputs[3].SetValue(crypto.GeneratePassword(32))
+				password, err := crypto.GeneratePassword(32)
+				if err != nil {
+					m.errorMessage = "failed to generate password"
+					return m, nil
+				}
+				m.inputs[3].SetValue(password)
 				return m, nil
 			}
 		case key.Matches(msg, m.keys.Edit.Submit):
@@ -435,9 +487,15 @@ func (m *Model) updateDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func checkInactivityTicker() tea.Cmd {
-	return tea.Tick(10*time.Second, func(t time.Time) tea.Msg {
+func checkInactivityTicker(delay time.Duration) tea.Cmd {
+	return tea.Tick(delay, func(t time.Time) tea.Msg {
 		return checkInactivityMsg{}
+	})
+}
+
+func hidePasswordTicker(delay time.Duration) tea.Cmd {
+	return tea.Tick(delay, func(t time.Time) tea.Msg {
+		return hidePasswordMsg{}
 	})
 }
 
