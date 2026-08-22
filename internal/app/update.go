@@ -22,6 +22,8 @@ type otpEmailSentMsg struct{}
 type deviceRegisteredMsg struct{}
 type checkInactivityMsg struct{}
 type hidePasswordMsg struct{}
+type accessDeniedMsg struct{}
+type checkPasswordMsg struct{}
 type clearClipboardMsg struct {
 	copiedPassword string
 }
@@ -46,6 +48,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			m.WipeSecrets()
+			m.WipeMeta()
 			return m, tea.Quit
 		}
 		m.lastActivity = time.Now()
@@ -56,11 +59,27 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.WipeSecrets()
 				m.vaultList.SetItems([]list.Item{})
 				m.state = authState
+				m.setupAuthInput()
 				m.errorMessage = "Vault locked due to inactivity"
 				return m, nil
 			}
 		}
 		cmds = append(cmds, checkInactivityTicker(10*time.Second))
+
+	case accessDeniedMsg:
+		m.WipeSecrets()
+		m.WipeMeta()
+		m.errorMessage = "too many attempts"
+		time.Sleep(5 * time.Second)
+		return m, tea.Quit
+
+	case checkPasswordMsg:
+		if (m.state == createState || m.state == editState) && m.focusIndex == 3 {
+			if time.Now().After(m.maskPasswordAt) {
+				m.inputs[3].EchoMode = textinput.EchoPassword
+			}
+		}
+		return m, nil
 
 	case clearClipboardMsg:
 		currentContent, err := clipboard.ReadAll()
@@ -200,7 +219,11 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			if err := crypto.VerifyMasterKey(authKey, m.meta.Verifier); err != nil {
+				if m.authAttempts >= 5 {
+					return m, accessDeniedCmd()
+				}
 				m.errorMessage = "invalid master password"
+				m.authAttempts++
 				m.inputs[0].SetValue("")
 				return m, nil
 			}
@@ -367,18 +390,33 @@ func (m *Model) updateDetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
+		if m.focusIndex == 3 {
+			m.inputs[3].EchoMode = textinput.EchoNormal
+			m.maskPasswordAt = time.Now().Add(2 * time.Second)
+
+			cmds = append(cmds, checkPasswordTicker(2*time.Second))
+		}
+
 		switch {
 		case key.Matches(msg, m.keys.Create.Cancel):
 			m.state = vaultState
 			return m, nil
 		case key.Matches(msg, m.keys.Create.Next):
+			if m.focusIndex == 3 {
+				m.inputs[3].EchoMode = textinput.EchoPassword
+			}
 			m.inputs[m.focusIndex].Blur()
 			m.focusIndex = (m.focusIndex + 1) % len(m.inputs)
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
 		case key.Matches(msg, m.keys.Create.Previous):
+			if m.focusIndex == 3 {
+				m.inputs[3].EchoMode = textinput.EchoPassword
+			}
 			m.inputs[m.focusIndex].Blur()
 			if m.focusIndex-1 < 0 {
 				m.focusIndex = len(m.inputs) - 1
@@ -395,10 +433,18 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				m.inputs[3].SetValue(password)
-				return m, nil
+
+				m.maskPasswordAt = time.Now().Add(2 * time.Second)
+				return m, checkPasswordTicker(2 * time.Second)
 			}
 
 		case key.Matches(msg, m.keys.Create.Submit):
+			for i := range m.inputs {
+				if len(m.inputs[i].Value()) == 0 {
+					m.errorMessage = fmt.Sprintf("Empty Field: %s", m.inputs[i].Placeholder)
+					return m, nil
+				}
+			}
 			if m.focusIndex == len(m.inputs)-1 {
 				newEntry := VaultItem{
 					Resource: m.inputs[0].Value(),
@@ -416,25 +462,44 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	var cmd tea.Cmd
-	m.inputs[m.focusIndex], cmd = m.inputs[m.focusIndex].Update(msg)
-	return m, cmd
+	var inputCmd tea.Cmd
+	m.inputs[m.focusIndex], inputCmd = m.inputs[m.focusIndex].Update(msg)
+	cmds = append(cmds, inputCmd)
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
+		if m.focusIndex == 3 {
+			m.inputs[3].EchoMode = textinput.EchoNormal
+			m.maskPasswordAt = time.Now().Add(2 * time.Second)
+
+			cmds = append(cmds, checkPasswordTicker(2*time.Second))
+		}
+
 		switch {
 		case key.Matches(msg, m.keys.Edit.Cancel):
+			m.inputs[3].EchoMode = textinput.EchoPassword
 			m.state = vaultState
 			return m, nil
+
 		case key.Matches(msg, m.keys.Edit.Next):
+			if m.focusIndex == 3 {
+				m.inputs[3].EchoMode = textinput.EchoPassword
+			}
 			m.inputs[m.focusIndex].Blur()
 			m.focusIndex = (m.focusIndex + 1) % len(m.inputs)
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
+
 		case key.Matches(msg, m.keys.Edit.Previous):
+			if m.focusIndex == 3 {
+				m.inputs[3].EchoMode = textinput.EchoPassword
+			}
 			m.inputs[m.focusIndex].Blur()
 			if m.focusIndex-1 < 0 {
 				m.focusIndex = len(m.inputs) - 1
@@ -443,6 +508,7 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
+
 		case key.Matches(msg, m.keys.Edit.Generate):
 			if m.focusIndex == 3 {
 				password, err := crypto.GeneratePassword(32)
@@ -451,9 +517,21 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				m.inputs[3].SetValue(password)
-				return m, nil
+
+				m.maskPasswordAt = time.Now().Add(2 * time.Second)
+				return m, checkPasswordTicker(2 * time.Second)
 			}
+
 		case key.Matches(msg, m.keys.Edit.Submit):
+			for i := range m.inputs {
+				if len(m.inputs[i].Value()) == 0 {
+					m.errorMessage = fmt.Sprintf("Empty Field: %s", m.inputs[i].Placeholder)
+					return m, nil
+				}
+			}
+
+			m.inputs[3].EchoMode = textinput.EchoPassword
+
 			updated := VaultItem{
 				Resource: m.inputs[0].Value(),
 				Email:    m.inputs[1].Value(),
@@ -465,8 +543,14 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.updateAndUploadCmd(updated)
 		}
 	}
-	m.inputs[m.focusIndex], cmd = m.inputs[m.focusIndex].Update(msg)
-	return m, cmd
+
+	var inputCmd tea.Cmd
+	m.inputs[m.focusIndex], inputCmd = m.inputs[m.focusIndex].Update(msg)
+	if inputCmd != nil {
+		cmds = append(cmds, inputCmd)
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m *Model) updateDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -503,4 +587,16 @@ func clearClipboardCmd(copiedPassword string, delay time.Duration) tea.Cmd {
 	return tea.Tick(delay, func(t time.Time) tea.Msg {
 		return clearClipboardMsg{copiedPassword: copiedPassword}
 	})
+}
+
+func checkPasswordTicker(delay time.Duration) tea.Cmd {
+	return tea.Tick(delay, func(t time.Time) tea.Msg {
+		return checkPasswordMsg{}
+	})
+}
+
+func accessDeniedCmd() tea.Cmd {
+	return func() tea.Msg {
+		return accessDeniedMsg{}
+	}
 }
