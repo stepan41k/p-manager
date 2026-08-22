@@ -1,7 +1,10 @@
-.PHONY: lint run
+.PHONY: lint run version
 
 lint:
 	golangci-lint run ./...
 
 run:
 	clear && go run ./cmd/vault/main.go
+
+version:
+	go run ./cmd/vault/main.go -v
