@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -179,6 +180,11 @@ func (m *Model) detailsView() string {
 		return fmt.Sprintf("%s %s", s.DetailLabel.Render(label), valueStyle.Render(value))
 	}
 
+	passDisplay := strings.Repeat("*", len([]rune(m.selectedItem.Password)))
+	if m.showPassword {
+		passDisplay = m.selectedItem.Password
+	}
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		s.Title.
@@ -188,7 +194,7 @@ func (m *Model) detailsView() string {
 		drawRow("Service:", m.selectedItem.Resource, s.DetailValue),
 		drawRow("Login:", m.selectedItem.Username, s.DetailValue),
 		drawRow("Email:", m.selectedItem.Email, s.DetailValue),
-		drawRow("Password:", m.selectedItem.Password, s.DetailKey),
+		drawRow("Password:", passDisplay, s.DetailKey),
 		"",
 	)
 
