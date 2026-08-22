@@ -25,7 +25,7 @@ func TestGeneratePassword(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GeneratePassword(tt.n)
+			got, _ := GeneratePassword(tt.n)
 			t.Log(got)
 		})
 	}
@@ -36,7 +36,7 @@ func TestGeneratePassword_Uniqueness(t *testing.T) {
 	seen := make(map[string]struct{})
 
 	for i := 0; i < iterations; i++ {
-		s := GeneratePassword(16)
+		s, _ := GeneratePassword(16)
 		if _, ok := seen[s]; ok {
 			t.Errorf("Collision detected at iteration %d: %s", i, s)
 		}
