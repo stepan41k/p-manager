@@ -43,6 +43,7 @@ type vaultKeyMap struct {
 type detailsKeyMap struct {
 	Back key.Binding
 	Copy key.Binding
+	View key.Binding
 }
 
 type createKeyMap struct {
@@ -92,6 +93,7 @@ func NewKeyMap() KeyMap {
 		Details: detailsKeyMap{
 			Back: key.NewBinding(key.WithKeys("esc", "backspace"), key.WithHelp("esc", "back")),
 			Copy: key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "copy")),
+			View: key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "view")),
 		},
 		Create: createKeyMap{
 			Submit:   key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "save")),
@@ -118,7 +120,7 @@ func (k setupKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Enter, k
 func (k authKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Enter, k.Quit} }
 func (k otpKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Enter, k.Quit} }
 func (k vaultKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Create, k.Details, k.Edit, k.Quit} }
-func (k detailsKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Back, k.Copy} }
+func (k detailsKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Back, k.Copy, k.View} }
 func (k createKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate} }
 func (k editKeyMap) ShortHelp() []key.Binding {	return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate} }
 func (k deleteKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Yes, k.No} }
