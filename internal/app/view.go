@@ -86,6 +86,15 @@ func (m *Model) renderForm(title string) string {
 		MarginBottom(1).
 		Render("── " + title + " ──")
 
+	errStr := ""
+	if m.errorMessage != "" {
+		errStr = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("9")).
+			MarginTop(1).
+			MarginLeft(1).
+			Render(m.errorMessage)
+	}
+
 	var labels []string
 	if m.state == createState || m.state == editState {
 		labels = []string{"Service:", "Email:", "Username:", "Password:"}
@@ -109,15 +118,7 @@ func (m *Model) renderForm(title string) string {
 	}
 	inputs := lipgloss.JoinVertical(lipgloss.Left, inputViews...)
 
-	status := ""
-	if m.errorMessage != "" {
-		status = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("11")).
-			MarginTop(1).
-			Render(m.errorMessage)
-	}
-
-	formContent := lipgloss.JoinVertical(lipgloss.Left, header, inputs, status)
+	formContent := lipgloss.JoinVertical(lipgloss.Left, header, inputs, errStr)
 
 	return s.Card.Render(formContent)
 }
