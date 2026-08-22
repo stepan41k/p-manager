@@ -56,6 +56,8 @@ type Model struct {
 	lastActivity    time.Time
 	showPassword    bool
 	hidePasswordAt  time.Time
+	authAttempts    int
+	maskPasswordAt time.Time
 
 	// State of forms and lists
 	inputs       []textinput.Model
@@ -129,6 +131,11 @@ func (m *Model) WipeSecrets() {
 	crypto.WipeBytes(m.authKey)
 	crypto.WipeBytes(m.vaultKey)
 
+	m.expectedOTPHash = [32]byte{}
+
+	m.otpAttempts = 0
+	m.authAttempts = 0
+
 	if m.selectedItem.Password != "" {
 		currentContent, err := clipboard.ReadAll()
 		if err == nil && currentContent == m.selectedItem.Password {
@@ -141,4 +148,15 @@ func (m *Model) WipeSecrets() {
 	}
 
 	m.errorMessage = ""
+}
+
+func (m *Model) WipeMeta() {
+	if len(m.meta.Salt) > 0 {
+		crypto.WipeBytes(m.meta.Salt)
+	}
+	if len(m.meta.Verifier) > 0 {
+		crypto.WipeBytes(m.meta.Verifier)
+	}
+
+	m.meta = s3.Metadata{}
 }
