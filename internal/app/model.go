@@ -51,7 +51,11 @@ type Model struct {
 	vaultKey        []byte
 	meta            s3.Metadata
 	expectedOTPHash [32]byte
+	otpExpiresAt    time.Time
+	otpAttempts     int
 	lastActivity    time.Time
+	showPassword    bool
+	hidePasswordAt  time.Time
 
 	// State of forms and lists
 	inputs       []textinput.Model
@@ -135,6 +139,6 @@ func (m *Model) WipeSecrets() {
 	for i := range m.inputs {
 		m.inputs[i].SetValue("")
 	}
-	
+
 	m.errorMessage = ""
 }
