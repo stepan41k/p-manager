@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"charm.land/bubbles/v2/list"
@@ -26,9 +27,18 @@ func (m *Model) runSetupCmd() tea.Cmd {
 		smtpSender, smtpPass := m.inputs[7].Value(), m.inputs[8].Value()
 		email, master := m.inputs[9].Value(), m.inputs[10].Value()
 
-		keyring.Set("p-manager", "access_key", accKey)
-		keyring.Set("p-manager", "secret_key", secKey)
-		keyring.Set("p-manager", "smtp_password", smtpPass)
+		err := keyring.Set("p-manager", "access_key", accKey)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+		err = keyring.Set("p-manager", "secret_key", secKey)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+		err = keyring.Set("p-manager", "smtp_password", smtpPass)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
 
 		cfg := config.Config{
 			SMTPConfig: config.SMTPConfig{
@@ -68,8 +78,26 @@ func (m *Model) runSetupCmd() tea.Cmd {
 			tokenStr := fmt.Sprintf("%x", rawToken)
 			tokenHash := fmt.Sprintf("%x", sha256.Sum256([]byte(tokenStr)))
 
-			_ = keyring.Set("p-manager", "device_token", tokenStr)
-			existingMeta.TrustedDeviceHashes = append(existingMeta.TrustedDeviceHashes, tokenHash)
+			err = keyring.Set("p-manager", "device_token", tokenStr)
+			if err != nil {
+				return vaultErrorMsg(err)
+			}
+
+			hostname, _ := os.Hostname()
+			if hostname == "" {
+				hostname = "unknown-device"
+			}
+
+			now := time.Now()
+
+			newDev := s3.TrustedDevice{
+				Hash:      tokenHash,
+				Name:      hostname,
+				CreatedAt: now,
+				ExpiresAt: now.Add(30 * 24 * time.Hour), // Срок действия 30 дней
+			}
+
+			existingMeta.TrustedDevices = append(existingMeta.TrustedDevices, newDev)
 
 			metaData, _ := json.Marshal(existingMeta)
 			if err := storage.Upload(ctx, "meta.json", bytes.NewReader(metaData)); err != nil {
@@ -91,9 +119,9 @@ func (m *Model) runSetupCmd() tea.Cmd {
 		encryptedVault, _ := crypto.Encrypt(emptyVault, vaultKey)
 
 		meta := s3.Metadata{
-			Salt:                salt,
-			Verifier:            verifier,
-			TrustedDeviceHashes: []string{},
+			Salt:           salt,
+			Verifier:       verifier,
+			TrustedDevices: []s3.TrustedDevice{},
 		}
 
 		metaData, _ := json.Marshal(meta)
@@ -241,7 +269,7 @@ func (m *Model) fetchVaultCmd() tea.Cmd {
 		body, err := m.storage.Download(ctx, "vault.enc")
 		if err != nil {
 			m.log.Warn("error retrieving data from s3 storage: ", sl.Err(err))
-			return vaultLoadedMsg([]list.Item{})
+			return vaultErrorMsg(err)
 		}
 
 		defer body.Close()
