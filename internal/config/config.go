@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+
+	"github.com/stepan41k/p-manager/internal/crypto"
 )
 
 var (
@@ -12,13 +14,14 @@ var (
 )
 
 const (
-	appName = "p-manager"
+	appName  = "p-manager"
 	fileName = "config.json"
 )
 
 type Config struct {
-	SMTPConfig SMTPConfig `json:"user_config"`
-	S3Config   S3Config   `json:"s3_config"`
+	SMTPConfig SMTPConfig              `json:"user_config"`
+	S3Config   S3Config                `json:"s3_config"`
+	Generator  crypto.GeneratorOptions `json:"generator_options"`
 }
 
 type S3Config struct {
@@ -28,25 +31,25 @@ type S3Config struct {
 }
 
 type SMTPConfig struct {
-    Email        string `json:"email"`
-    SMTPHost     string `json:"smtp_host"`
-    SMTPPort     string `json:"smtp_port"`
-    SMTPSender   string `json:"smtp_sender"`
+	Email      string `json:"email"`
+	SMTPHost   string `json:"smtp_host"`
+	SMTPPort   string `json:"smtp_port"`
+	SMTPSender string `json:"smtp_sender"`
 }
 
 func GetConfigPath() string {
 	dir, _ := os.UserConfigDir()
-	
+
 	return filepath.Join(dir, appName, fileName)
 }
 
 func SaveConfig(cfg Config) error {
 	path := GetConfigPath()
-	
+
 	_ = os.MkdirAll(filepath.Dir(path), 0755)
-	
+
 	data, _ := json.MarshalIndent(cfg, "", "  ")
-	
+
 	return os.WriteFile(path, data, 0600)
 }
 
