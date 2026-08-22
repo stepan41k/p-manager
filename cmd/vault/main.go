@@ -39,7 +39,7 @@ func main() {
 		}
 	}()
 	
-	file, err := os.OpenFile(debugFile, os.O_WRONLY | os.O_CREATE | os.O_APPEND, 0o666)
+	file, err := os.OpenFile(debugFile, os.O_WRONLY | os.O_CREATE | os.O_APPEND, 0o600)
 	if err != nil {
 		errorMessage = fmt.Sprintf("failed to open debug file: %s", err.Error())
 		panic(errorMessage)
