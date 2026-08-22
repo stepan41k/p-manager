@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 
@@ -19,20 +20,28 @@ import (
 type sessionState int
 
 const (
-	setupState   sessionState = iota // Initial setup
-	authState                        // Entering the master password
-	otpState                         // Enter OTP
-	vaultState                       // Searching for and selecting a entry
-	detailsState                     // View entry details
-	createState                      // Creating a new entry
-	editState                        // Editing the entry
-	deleteState                      // Deleting the entry
+	setupState            sessionState = iota // Initial setup
+	authState                                 // Entering the master password
+	otpState                                  // Enter OTP
+	vaultState                                // Searching for and selecting a entry
+	customizeKeymapsState                     // View and customize keymaps
+	genConfigState                            // View and customize password generator
+	detailsState                              // View entry details
+	createState                               // Creating a new entry
+	editState                                 // Editing the entry
+	deleteState                               // Deleting the entry
 )
 
 type VaultStorage interface {
 	Upload(ctx context.Context, key string, body io.Reader) error
 	Download(ctx context.Context, key string) (io.ReadCloser, error)
 	Delete(ctx context.Context, key string) error
+}
+
+type ConfigurableKey struct {
+	Category string
+	Name     string
+	Binding  *key.Binding
 }
 
 type Model struct {
@@ -57,7 +66,7 @@ type Model struct {
 	showPassword    bool
 	hidePasswordAt  time.Time
 	authAttempts    int
-	maskPasswordAt time.Time
+	maskPasswordAt  time.Time
 
 	// State of forms and lists
 	inputs       []textinput.Model
@@ -66,10 +75,18 @@ type Model struct {
 	selectedItem VaultItem
 	errorMessage string
 
-	// Design and Hotkeys
-	styles Styles
-	keys   KeyMap
-	help   help.Model
+	// Design and Keymaps
+	styles      Styles
+	keys        KeyMap
+	help        help.Model
+	keymapIndex int
+	isRebinding bool
+	bindList    []ConfigurableKey
+
+	// Generator Options
+	genOpts     crypto.GeneratorOptions
+	genOptIndex int                     
+	previewPass string
 }
 
 func NewModel(s3 *s3.Storage, cfg *config.Config, meta *s3.Metadata, log *slog.Logger) *Model {
