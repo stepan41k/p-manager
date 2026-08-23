@@ -98,8 +98,8 @@ func (m *Model) setupGenConfig() {
 
 func (m *Model) setupFormInputs(values []string) {
 	m.focusIndex = 0
-	m.inputs = make([]textinput.Model, 4)
-	placeholders := []string{"Service", "Email", "Username", "Password"}
+	m.inputs = make([]textinput.Model, 5)
+	placeholders := []string{"Service", "Email", "Username", "Password", "Notes"}
 
 	for i := range m.inputs {
 		t := textinput.New()
