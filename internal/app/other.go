@@ -101,7 +101,8 @@ func (m *Model) runSetupCmd() tea.Cmd {
 
 			metaData, _ := json.Marshal(existingMeta)
 			if err := storage.Upload(ctx, "meta.json", bytes.NewReader(metaData)); err != nil {
-				return vaultErrorMsg(err)
+				error := fmt.Errorf("\nNetwork Error: Unable to connect to S3 storage.\nPlease check your internet connection and try again.")
+				return vaultErrorMsg(error)
 			}
 
 			return setupFinishedMsg{
@@ -127,10 +128,12 @@ func (m *Model) runSetupCmd() tea.Cmd {
 		metaData, _ := json.Marshal(meta)
 
 		if err := storage.Upload(ctx, "meta.json", bytes.NewReader(metaData)); err != nil {
-			return vaultErrorMsg(err)
+			error := fmt.Errorf("\nNetwork Error: Unable to connect to S3 storage.\nPlease check your internet connection and try again.")
+			return vaultErrorMsg(error)
 		}
 		if err := storage.Upload(ctx, "vault.enc", bytes.NewReader(encryptedVault)); err != nil {
-			return vaultErrorMsg(err)
+			error := fmt.Errorf("\nNetwork Error: Unable to connect to S3 storage.\nPlease check your internet connection and try again.")
+			return vaultErrorMsg(error)
 		}
 
 		return setupFinishedMsg{
@@ -167,7 +170,8 @@ func (m *Model) deleteAndUploadCmd() tea.Cmd {
 		body := bytes.NewReader(encrypted)
 		err = m.storage.Upload(ctx, "vault.enc", body)
 		if err != nil {
-			return vaultErrorMsg(err)
+			error := fmt.Errorf("\nNetwork Error: Unable to connect to S3 storage.\nPlease check your internet connection and try again.")
+			return vaultErrorMsg(error)
 		}
 
 		updatedList := make([]list.Item, len(newEntries))
@@ -205,7 +209,8 @@ func (m *Model) updateAndUploadCmd(updatedEntry VaultItem) tea.Cmd {
 
 		err = m.storage.Upload(ctx, "vault.enc", bytes.NewReader(encrypted))
 		if err != nil {
-			return vaultErrorMsg(err)
+			error := fmt.Errorf("\nNetwork Error: Unable to connect to S3 storage.\nPlease check your internet connection and try again.")
+			return vaultErrorMsg(error)
 		}
 
 		newItems := make([]list.Item, len(allEntries))
@@ -249,7 +254,8 @@ func (m *Model) saveAndUploadCmd(entry VaultItem) tea.Cmd {
 		err = m.storage.Upload(ctx, "vault.enc", bodyReader)
 		if err != nil {
 			m.log.Warn("error with uploading to S3: %w", sl.Err(err))
-			return vaultErrorMsg(err)
+			error := fmt.Errorf("\nNetwork Error: Unable to connect to S3 storage.\nPlease check your internet connection and try again.")
+			return vaultErrorMsg(error)
 		}
 
 		updatedItems := make([]list.Item, len(allEntries))
