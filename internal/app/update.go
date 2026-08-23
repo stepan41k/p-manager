@@ -230,7 +230,7 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.WipeSecrets()
 					return m, tea.Quit
 				}
-				
+
 				attemptsLeft := 5 - m.authAttempts
 				m.errorMessage = fmt.Sprintf("Invalid password! Attempts remaining: %d", attemptsLeft)
 
@@ -338,6 +338,7 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedItem.Email,
 				m.selectedItem.Username,
 				m.selectedItem.Password,
+				m.selectedItem.Note,
 			})
 
 			return m, nil
@@ -475,6 +476,7 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Email:    m.inputs[1].Value(),
 					Username: m.inputs[2].Value(),
 					Password: m.inputs[3].Value(),
+					Note:     m.inputs[4].Value(),
 				}
 
 				return m, m.saveAndUploadCmd(newEntry)
@@ -553,6 +555,11 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keys.Edit.Submit):
 			for i := range m.inputs {
+				if len(m.inputs[i].Value()) > 1024 {
+					m.errorMessage = fmt.Sprintf("%s field is too long", m.inputs[i].Placeholder)
+					return m, nil
+				}
+				
 				if len(m.inputs[i].Value()) == 0 {
 					m.errorMessage = fmt.Sprintf("Empty Field: %s", m.inputs[i].Placeholder)
 					return m, nil
@@ -561,11 +568,13 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.inputs[3].EchoMode = textinput.EchoPassword
 
+			
 			updated := VaultItem{
 				Resource: m.inputs[0].Value(),
 				Email:    m.inputs[1].Value(),
 				Username: m.inputs[2].Value(),
 				Password: m.inputs[3].Value(),
+				Note:     m.inputs[4].Value(),
 			}
 
 			m.errorMessage = "Updating at Cloud Storage..."
@@ -587,7 +596,7 @@ func (m *Model) updateDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Delete.Yes):
-			m.errorMessage = "Delete from S3..."
+			m.errorMessage = "Deletion from S3 storage..."
 
 			return m, m.deleteAndUploadCmd()
 		case key.Matches(msg, m.keys.Delete.No):
