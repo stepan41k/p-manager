@@ -103,7 +103,7 @@ func (m *Model) renderForm(title string) string {
 
 	var labels []string
 	if m.state == createState || m.state == editState {
-		labels = []string{"Service:", "Email:", "Username:", "Password:"}
+		labels = []string{"Service:", "Email:", "Username:", "Password:", "Note:"}
 	}
 
 	var inputViews []string
@@ -202,8 +202,15 @@ func (m *Model) detailsView() string {
 		drawRow("Login:", m.selectedItem.Username, s.DetailValue),
 		drawRow("Email:", m.selectedItem.Email, s.DetailValue),
 		drawRow("Password:", passDisplay, s.DetailKey),
-		"",
 	)
+
+	if m.selectedItem.Note != "" {
+        content = lipgloss.JoinVertical(
+            lipgloss.Left,
+            content,
+            drawRow("Note:", m.selectedItem.Note, s.DetailValue),
+        )
+    }
 
 	return s.Card.Render(content)
 }
@@ -216,10 +223,15 @@ func (m *Model) deleteView() string {
 		MarginBottom(1).
 		Render("── " + "DELETE ENTRY" + " ──")
 
+	errStr := ""
+	if m.errorMessage != "" {
+		errStr = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render("\n" + m.errorMessage)
+	}
+	
 	question := fmt.Sprintf("Are you sure you want to remove the password for %s?",
 		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205")).Render(m.selectedItem.Resource))
 
-	formContent := lipgloss.JoinVertical(lipgloss.Left, header, question)
+	formContent := lipgloss.JoinVertical(lipgloss.Left, header, question, errStr)
 
 	return s.Card.Render(formContent)
 }
