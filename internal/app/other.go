@@ -306,3 +306,27 @@ func (m *Model) fetchVaultCmd() tea.Cmd {
 		return vaultLoadedMsg(items)
 	}
 }
+
+func checkAndMarkDuplicates(items []list.Item) []list.Item {
+	counts := make(map[string]int)
+
+	for _, it := range items {
+		if v, ok := GetVaultItem(it); ok && v.Password != "" {
+			counts[v.Password]++
+		}
+	}
+
+	// log.Info("duplicates check", "total_items", len(items), "counts_map", counts)
+
+	updatedItems := make([]list.Item, len(items))
+	for i, it := range items {
+		if v, ok := GetVaultItem(it); ok {
+			v.IsDuplicate = v.Password != "" && counts[v.Password] > 1
+			updatedItems[i] = v
+		} else {
+			updatedItems[i] = it
+		}
+	}
+
+	return updatedItems
+}
