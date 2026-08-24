@@ -85,7 +85,7 @@ type Model struct {
 
 	// Generator Options
 	genOpts     crypto.GeneratorOptions
-	genOptIndex int                     
+	genOptIndex int
 	previewPass string
 }
 
@@ -128,6 +128,9 @@ func NewModel(s3 *s3.Storage, cfg *config.Config, meta *s3.Metadata, log *slog.L
 		keys:      keys,
 		help:      help,
 	}
+
+	m.setupKeymapList()
+	m.applyCustomKeys()
 
 	if meta != nil {
 		m.meta = *meta
