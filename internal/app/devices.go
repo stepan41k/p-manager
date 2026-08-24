@@ -84,11 +84,25 @@ func (m *Model) registerCurrentDeviceCmd() tea.Cmd {
 
 func (m *Model) revokeAllDevicesCmd() tea.Cmd {
 	return func() tea.Msg {
-		m.meta.TrustedDevices= []s3.TrustedDevice{}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		
+		m.meta.TrustedDevices = []s3.TrustedDevice{}
 
-		metaData, _ := json.Marshal(m.meta)
-		_ = m.storage.Upload(context.Background(), "meta.json", bytes.NewReader(metaData))
+		err := keyring.Delete("p-manager", "device_token")
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
 
-		return nil
+		metaData, err := json.Marshal(m.meta)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+
+		if err := m.storage.Upload(ctx, "meta.json", bytes.NewReader(metaData)); err != nil {
+			return vaultErrorMsg(err)
+		}
+
+		return devicesRevokedMsg{}
 	}
 }
