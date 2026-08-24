@@ -46,7 +46,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastActivity = time.Now()
 
 	case tea.KeyPressMsg:
-		if msg.String() == "ctrl+c" {
+		if key.Matches(msg, m.keys.Common.Quit) {
 			m.WipeSecrets()
 			m.WipeMeta()
 			return m, tea.Quit
@@ -120,7 +120,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, textinput.Blink
 
 	case vaultLoadedMsg:
-		m.vaultList.SetItems(msg)
+		m.vaultList.SetItems(checkAndMarkDuplicates(msg))
 		m.vaultList.Title = "My passwords"
 		m.vaultList.Styles.Title = m.styles.Title
 		m.state = vaultState
@@ -172,7 +172,7 @@ func (m *Model) updateSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch {
-		case key.Matches(msg, m.keys.Setup.Enter):
+		case key.Matches(msg, m.keys.Common.Submit):
 			if m.focusIndex == len(m.inputs)-1 {
 				m.errorMessage = "Saving configuration..."
 				return m, m.runSetupCmd()
@@ -182,12 +182,12 @@ func (m *Model) updateSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusIndex++
 			return m, m.inputs[m.focusIndex].Focus()
 
-		case key.Matches(msg, m.keys.Setup.Next):
+		case key.Matches(msg, m.keys.Common.Next):
 			m.inputs[m.focusIndex].Blur()
 			m.focusIndex = (m.focusIndex + 1) % len(m.inputs)
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
-		case key.Matches(msg, m.keys.Setup.Previous):
+		case key.Matches(msg, m.keys.Common.Previous):
 			m.inputs[m.focusIndex].Blur()
 			if m.focusIndex-1 < 0 {
 				m.focusIndex = len(m.inputs) - 1
@@ -197,7 +197,7 @@ func (m *Model) updateSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
 
-		case key.Matches(msg, m.keys.Setup.Quit):
+		case key.Matches(msg, m.keys.Common.Quit):
 			return m, tea.Quit
 		}
 	}
@@ -212,7 +212,7 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch {
-		case key.Matches(msg, m.keys.Auth.Enter):
+		case key.Matches(msg, m.keys.Common.Submit):
 			password := m.inputs[0].Value()
 
 			authKey, vaultKey, err := crypto.DeriveMasterKeys(password, m.meta.Salt)
@@ -275,7 +275,7 @@ func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch {
-		case key.Matches(msg, m.keys.OTP.Enter):
+		case key.Matches(msg, m.keys.Common.Submit):
 			if time.Now().After(m.otpExpiresAt) {
 				m.errorMessage = "Code expired! Please enter master password again."
 				m.WipeSecrets()
@@ -307,7 +307,7 @@ func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.inputs[0].SetValue("")
 				return m, nil
 			}
-		case key.Matches(msg, m.keys.OTP.Quit):
+		case key.Matches(msg, m.keys.Common.Quit):
 			m.state = authState
 			return m, nil
 		}
@@ -369,6 +369,11 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = genConfigState
 			m.setupGenConfig()
 			return m, nil
+
+		case key.Matches(msg, m.keys.Vault.Unauthorize):
+			m.state = authState
+			m.WipeSecrets()
+			return m, nil
 		}
 	}
 
@@ -382,7 +387,7 @@ func (m *Model) updateDetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch {
-		case key.Matches(msg, m.keys.Details.Back):
+		case key.Matches(msg, m.keys.Common.Cancel):
 			m.state = vaultState
 			return m, nil
 		case key.Matches(msg, m.keys.Details.Copy):
@@ -422,10 +427,10 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch {
-		case key.Matches(msg, m.keys.Create.Cancel):
+		case key.Matches(msg, m.keys.Common.Cancel):
 			m.state = vaultState
 			return m, nil
-		case key.Matches(msg, m.keys.Create.Next):
+		case key.Matches(msg, m.keys.Common.Next):
 			if m.focusIndex == 3 {
 				m.inputs[3].EchoMode = textinput.EchoPassword
 			}
@@ -433,7 +438,7 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusIndex = (m.focusIndex + 1) % len(m.inputs)
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
-		case key.Matches(msg, m.keys.Create.Previous):
+		case key.Matches(msg, m.keys.Common.Previous):
 			if m.focusIndex == 3 {
 				m.inputs[3].EchoMode = textinput.EchoPassword
 			}
@@ -445,7 +450,7 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
-		case key.Matches(msg, m.keys.Create.Generate):
+		case key.Matches(msg, m.keys.Common.Generate):
 			if m.focusIndex == 3 {
 				opts := m.config.Generator
 				if opts.Length == 0 {
@@ -463,9 +468,14 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, checkPasswordTicker(2 * time.Second)
 			}
 
-		case key.Matches(msg, m.keys.Create.Submit):
+		case key.Matches(msg, m.keys.Common.Submit):
 			for i := range m.inputs {
-				if len(m.inputs[i].Value()) == 0 {
+				if len(m.inputs[i].Value()) > 1024 {
+					m.errorMessage = fmt.Sprintf("%s field is too long", m.inputs[i].Placeholder)
+					return m, nil
+				}
+
+				if len(m.inputs[i].Value()) == 0 && i < 4 {
 					m.errorMessage = fmt.Sprintf("Empty Field: %s", m.inputs[i].Placeholder)
 					return m, nil
 				}
@@ -508,12 +518,12 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch {
-		case key.Matches(msg, m.keys.Edit.Cancel):
+		case key.Matches(msg, m.keys.Common.Cancel):
 			m.inputs[3].EchoMode = textinput.EchoPassword
 			m.state = vaultState
 			return m, nil
 
-		case key.Matches(msg, m.keys.Edit.Next):
+		case key.Matches(msg, m.keys.Common.Next):
 			if m.focusIndex == 3 {
 				m.inputs[3].EchoMode = textinput.EchoPassword
 			}
@@ -522,7 +532,7 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
 
-		case key.Matches(msg, m.keys.Edit.Previous):
+		case key.Matches(msg, m.keys.Common.Previous):
 			if m.focusIndex == 3 {
 				m.inputs[3].EchoMode = textinput.EchoPassword
 			}
@@ -535,7 +545,7 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.inputs[m.focusIndex].Focus()
 			return m, nil
 
-		case key.Matches(msg, m.keys.Edit.Generate):
+		case key.Matches(msg, m.keys.Common.Generate):
 			if m.focusIndex == 3 {
 				opts := m.config.Generator
 				if opts.Length == 0 {
@@ -553,14 +563,14 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, checkPasswordTicker(2 * time.Second)
 			}
 
-		case key.Matches(msg, m.keys.Edit.Submit):
+		case key.Matches(msg, m.keys.Common.Submit):
 			for i := range m.inputs {
 				if len(m.inputs[i].Value()) > 1024 {
 					m.errorMessage = fmt.Sprintf("%s field is too long", m.inputs[i].Placeholder)
 					return m, nil
 				}
-				
-				if len(m.inputs[i].Value()) == 0 {
+
+				if len(m.inputs[i].Value()) == 0 && i < 4 {
 					m.errorMessage = fmt.Sprintf("Empty Field: %s", m.inputs[i].Placeholder)
 					return m, nil
 				}
@@ -568,7 +578,6 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.inputs[3].EchoMode = textinput.EchoPassword
 
-			
 			updated := VaultItem{
 				Resource: m.inputs[0].Value(),
 				Email:    m.inputs[1].Value(),
@@ -615,40 +624,60 @@ func (m *Model) updateKeymaps(msg tea.Msg) (tea.Model, tea.Cmd) {
 		k := msg.String()
 
 		if m.isRebinding {
-			if key.Matches(msg, m.keys.KeyMapConfig.Quit) {
+			if k == "esc" {
 				m.isRebinding = false
 				m.errorMessage = ""
 				return m, nil
 			}
 
-			m.bindList[m.keymapIndex].Binding.SetKeys(k)
-			m.isRebinding = false
-			m.errorMessage = fmt.Sprintf("Key for '%s' changed to '%s'", m.bindList[m.keymapIndex].Name, k)
+			if errText := m.findKeyConflict(k, m.keymapIndex); errText != "" {
+				m.isRebinding = false
+				m.errorMessage = "Error: " + errText
+				return m, nil
+			}
 
-			// TODO: save keymaps in config.jsonw
-			// config.SaveConfig(*m.config)
+			m.bindList[m.keymapIndex].Binding.SetKeys(k)
+			currentDesc := m.bindList[m.keymapIndex].Binding.Help().Desc
+			m.bindList[m.keymapIndex].Binding.SetHelp(k, currentDesc)
+
+			m.isRebinding = false
+			m.errorMessage = fmt.Sprintf("Key for '%s' set to '%s'", m.bindList[m.keymapIndex].Name, k)
+
+			if m.config != nil {
+				m.config.Keymaps = m.exportCustomKeys()
+				_ = config.SaveConfig(*m.config)
+			}
+
 			return m, nil
 		}
 
 		switch {
-		case key.Matches(msg, m.keys.KeyMapConfig.Quit):
+		case key.Matches(msg, m.keys.Common.Cancel):
+			if m.config != nil {
+				m.config.Keymaps = m.exportCustomKeys()
+				if err := config.SaveConfig(*m.config); err != nil {
+					m.log.Error("failed to save custom keymaps", "error", err)
+				} else {
+					m.log.Info("custom keymaps saved to config.json")
+				}
+			}
 			m.state = vaultState
 			m.errorMessage = ""
 			return m, nil
 
-		case key.Matches(msg, m.keys.KeyMapConfig.Previous):
+		case key.Matches(msg, m.keys.Common.Previous):
 			if m.keymapIndex > 0 {
 				m.keymapIndex--
 			}
 			return m, nil
 
-		case key.Matches(msg, m.keys.KeyMapConfig.Next):
+		case key.Matches(msg, m.keys.Common.Next):
 			if m.keymapIndex < len(m.bindList)-1 {
 				m.keymapIndex++
 			}
 			return m, nil
 
-		case key.Matches(msg, m.keys.KeyMapConfig.Save):
+		case key.Matches(msg, m.keys.Common.Submit):
 			m.isRebinding = true
 			m.errorMessage = fmt.Sprintf("Press new key for '%s' (esc to cancel)...", m.bindList[m.keymapIndex].Name)
 			return m, nil
@@ -661,7 +690,7 @@ func (m *Model) updateGenConfig(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch {
-		case key.Matches(msg, m.keys.GenConfig.Quit):
+		case key.Matches(msg, m.keys.Common.Cancel):
 			if m.config != nil {
 				m.config.Generator = m.genOpts
 				_ = config.SaveConfig(*m.config)
@@ -669,13 +698,13 @@ func (m *Model) updateGenConfig(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = vaultState
 			return m, nil
 
-		case key.Matches(msg, m.keys.GenConfig.Previous):
+		case key.Matches(msg, m.keys.Common.Previous):
 			if m.genOptIndex > 0 {
 				m.genOptIndex--
 			}
 			return m, nil
 
-		case key.Matches(msg, m.keys.GenConfig.Next):
+		case key.Matches(msg, m.keys.Common.Next):
 			if m.genOptIndex < 4 {
 				m.genOptIndex++
 			}
@@ -710,7 +739,7 @@ func (m *Model) updateGenConfig(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.previewPass, _ = crypto.GeneratePasswordWithOptions(m.genOpts)
 			return m, nil
 
-		case key.Matches(msg, m.keys.GenConfig.Genrate):
+		case key.Matches(msg, m.keys.Common.Generate):
 			m.previewPass, _ = crypto.GeneratePasswordWithOptions(m.genOpts)
 			return m, nil
 		}
