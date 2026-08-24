@@ -15,6 +15,7 @@ type KeyMap struct {
 	Vault        vaultKeyMap
 	KeyMapConfig keyMapConfig
 	GenConfig    genConfigKeyMap
+	Settings     settingsKeyMap
 	Details      detailsKeyMap
 	Create       createKeyMap
 	Edit         editKeyMap
@@ -46,6 +47,7 @@ type vaultKeyMap struct {
 	*commonKeyMap
 	ConfigKeys  key.Binding
 	GenConfig   key.Binding
+	Settings    key.Binding
 	Create      key.Binding
 	Details     key.Binding
 	Edit        key.Binding
@@ -62,6 +64,11 @@ type genConfigKeyMap struct {
 	ReduceLength   key.Binding
 	IncreaseLength key.Binding
 	Switch         key.Binding
+}
+
+type settingsKeyMap struct {
+	*commonKeyMap
+	RevokeDevices key.Binding
 }
 
 type detailsKeyMap struct {
@@ -108,6 +115,7 @@ func NewKeyMap() KeyMap {
 			commonKeyMap: &commonKeyMap,
 			ConfigKeys:   key.NewBinding(key.WithKeys("ctrl+k"), key.WithHelp("ctrl+k", "customize keymaps")),
 			GenConfig:    key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("ctrl+p", "customize password generator")),
+			Settings:     key.NewBinding(key.WithKeys("ctrl+s"), key.WithHelp("ctrl+s", "user settings")),
 			Create:       key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "create new vault")),
 			Details:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "show details")),
 			Edit:         key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("ctrl+e", "edit")),
@@ -116,6 +124,11 @@ func NewKeyMap() KeyMap {
 		},
 		KeyMapConfig: keyMapConfig{
 			commonKeyMap: &commonKeyMap,
+		},
+
+		Settings: settingsKeyMap{
+			commonKeyMap: &commonKeyMap,
+			RevokeDevices: key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl+r", "revoke all 2FA devices")),
 		},
 
 		GenConfig: genConfigKeyMap{
@@ -151,7 +164,7 @@ func (k setupKeyMap) ShortHelp() []key.Binding {
 func (k authKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Submit, k.Quit} }
 func (k otpKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Submit, k.Quit} }
 func (k vaultKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.ConfigKeys, k.GenConfig, k.Create, k.Details, k.Edit, k.Delete, k.Unauthorize, k.Quit}
+	return []key.Binding{k.ConfigKeys, k.GenConfig, k.Settings, k.Create, k.Details, k.Edit, k.Delete, k.Unauthorize, k.Quit}
 }
 func (k keyMapConfig) ShortHelp() []key.Binding {
 	return []key.Binding{k.Submit, k.Next, k.Previous, k.Quit}
@@ -166,6 +179,7 @@ func (k createKeyMap) ShortHelp() []key.Binding {
 func (k editKeyMap) ShortHelp() []key.Binding {
 	return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate}
 }
+func (k settingsKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Next, k.Previous, k.RevokeDevices, k.Submit, k.Cancel} }
 func (k deleteKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Yes, k.No} }
 
 func (k commonKeyMap) FullHelp() [][]key.Binding    { return [][]key.Binding{k.ShortHelp()} }
@@ -179,6 +193,7 @@ func (k detailsKeyMap) FullHelp() [][]key.Binding   { return [][]key.Binding{k.S
 func (k createKeyMap) FullHelp() [][]key.Binding    { return [][]key.Binding{k.ShortHelp()} }
 func (k editKeyMap) FullHelp() [][]key.Binding      { return [][]key.Binding{k.ShortHelp()} }
 func (k deleteKeyMap) FullHelp() [][]key.Binding    { return [][]key.Binding{k.ShortHelp()} }
+func (k settingsKeyMap) FullHelp() [][]key.Binding    { return [][]key.Binding{k.ShortHelp()} }
 
 func (m *Model) areCategoriesConflicting(cat1, name1, cat2, name2 string) bool {
 	if cat1 == cat2 && name1 == name2 {
