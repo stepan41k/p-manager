@@ -63,19 +63,27 @@ func (m *Model) setupKeymapList() {
 	m.isRebinding = false
 
 	m.bindList = []ConfigurableKey{
-		{Category: "SETUP", Name: "Next", Binding: &m.keys.Setup.Next},
-		{Category: "SETUP", Name: "Previous", Binding: &m.keys.Setup.Previous},
+		{Category: "COMMON", Name: "Next", Binding: &m.keys.Common.Next},
+		{Category: "COMMON", Name: "Previous", Binding: &m.keys.Common.Previous},
+		{Category: "COMMON", Name: "Submit", Binding: &m.keys.Common.Submit},
+		{Category: "COMMON", Name: "Cancel", Binding: &m.keys.Common.Cancel},
+		{Category: "COMMON", Name: "Generate", Binding: &m.keys.Common.Generate},
+		{Category: "COMMON", Name: "Quit", Binding: &m.keys.Common.Quit},
+
+		{Category: "VAULT", Name: "Details", Binding: &m.keys.Vault.Details},
+		{Category: "VAULT", Name: "Keymaps Config", Binding: &m.keys.Vault.ConfigKeys},
+		{Category: "VAULT", Name: "P-Generator Config", Binding: &m.keys.Vault.GenConfig},
 		{Category: "VAULT", Name: "Create", Binding: &m.keys.Vault.Create},
-		{Category: "VAULT", Name: "Delete", Binding: &m.keys.Vault.Delete},
 		{Category: "VAULT", Name: "Edit", Binding: &m.keys.Vault.Edit},
+		{Category: "VAULT", Name: "Delete", Binding: &m.keys.Vault.Delete},
+		{Category: "VAULT", Name: "Unauthorize", Binding: &m.keys.Vault.Unauthorize},
+
+		{Category: "P-GENERATOR-CONFIG", Name: "ReduceLength", Binding: &m.keys.GenConfig.ReduceLength},
+		{Category: "P-GENERATOR-CONFIG", Name: "IncreaseLength", Binding: &m.keys.GenConfig.IncreaseLength},
+		{Category: "P-GENERATOR-CONFIG", Name: "Switch", Binding: &m.keys.GenConfig.Switch},
+		
 		{Category: "DETAILS", Name: "Copy", Binding: &m.keys.Details.Copy},
 		{Category: "DETAILS", Name: "View", Binding: &m.keys.Details.View},
-		{Category: "CREATE", Name: "Next", Binding: &m.keys.Create.Next},
-		{Category: "CREATE", Name: "Previous", Binding: &m.keys.Create.Previous},
-		{Category: "CREATE", Name: "Generate", Binding: &m.keys.Create.Generate},
-		{Category: "EDIT", Name: "Next", Binding: &m.keys.Edit.Next},
-		{Category: "EDIT", Name: "Previous", Binding: &m.keys.Edit.Previous},
-		{Category: "EDIT", Name: "Generate", Binding: &m.keys.Edit.Generate},
 	}
 }
 
