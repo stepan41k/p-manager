@@ -22,6 +22,7 @@ type otpEmailSentMsg struct{}
 type deviceRegisteredMsg struct{}
 type checkInactivityMsg struct{}
 type hidePasswordMsg struct{}
+type devicesRevokedMsg struct{}
 type accessDeniedMsg struct{}
 type checkPasswordMsg struct{}
 type clearClipboardMsg struct {
@@ -129,6 +130,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.log.Info("start ticker")
 		cmds = append(cmds, checkInactivityTicker(10*time.Second))
 
+	case devicesRevokedMsg:
+		m.errorMessage = "All trusted devices revoked! 2FA required on next login."
+		return m, nil
+
 	case vaultErrorMsg:
 		m.errorMessage = "Error: " + msg.Error()
 		return m, nil
@@ -157,6 +162,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, subCmd = m.updateEdit(msg)
 	case deleteState:
 		_, subCmd = m.updateDelete(msg)
+	case settingsState:
+		_, subCmd = m.updateSettings(msg)
 	}
 
 	if subCmd != nil {
@@ -373,6 +380,10 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Vault.Unauthorize):
 			m.state = authState
 			m.WipeSecrets()
+			return m, nil
+		case key.Matches(msg, m.keys.Vault.Settings): 
+			m.state = settingsState
+			m.setupSettingsInputs()
 			return m, nil
 		}
 	}
@@ -745,4 +756,48 @@ func (m *Model) updateGenConfig(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+func (m *Model) updateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch {
+		case key.Matches(msg, m.keys.Common.Cancel):
+			m.state = vaultState
+			return m, nil
+
+		case key.Matches(msg, m.keys.Settings.RevokeDevices):
+			m.errorMessage = "Revoking all trusted devices..."
+			return m, m.revokeAllDevicesCmd()
+
+		case key.Matches(msg, m.keys.Common.Submit):
+			if m.focusIndex == len(m.inputs)-1 {
+				m.errorMessage = "Saving settings..."
+				return m, m.saveSettingsCmd()
+			}
+
+			m.inputs[m.focusIndex].Blur()
+			m.focusIndex++
+			return m, m.inputs[m.focusIndex].Focus()
+
+		case key.Matches(msg, m.keys.Common.Next):
+			m.inputs[m.focusIndex].Blur()
+			m.focusIndex = (m.focusIndex + 1) % len(m.inputs)
+			return m, m.inputs[m.focusIndex].Focus()
+
+		case key.Matches(msg, m.keys.Common.Previous):
+			m.inputs[m.focusIndex].Blur()
+			if m.focusIndex-1 < 0 {
+				m.focusIndex = len(m.inputs) - 1
+			} else {
+				m.focusIndex--
+			}
+			return m, m.inputs[m.focusIndex].Focus()
+		}
+	}
+
+	m.inputs[m.focusIndex], cmd = m.inputs[m.focusIndex].Update(msg)
+	return m, cmd
 }
