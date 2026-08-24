@@ -330,3 +330,57 @@ func checkAndMarkDuplicates(items []list.Item) []list.Item {
 
 	return updatedItems
 }
+
+func (m *Model) saveSettingsCmd() tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		reg, endp, buck := m.inputs[0].Value(), m.inputs[1].Value(), m.inputs[2].Value()
+		accKey, secKey := m.inputs[3].Value(), m.inputs[4].Value()
+		smtpHost, smtpPort := m.inputs[5].Value(), m.inputs[6].Value()
+		smtpSender, smtpPass := m.inputs[7].Value(), m.inputs[8].Value()
+		targetEmail := m.inputs[9].Value()
+
+		err := keyring.Set("p-manager", "access_key", accKey)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+		err = keyring.Set("p-manager", "secret_key", secKey)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+		err = keyring.Set("p-manager", "smtp_password", smtpPass)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+
+		newCfg := config.Config{
+			SMTPConfig: config.SMTPConfig{
+				Email:      targetEmail,
+				SMTPHost:   smtpHost,
+				SMTPPort:   smtpPort,
+				SMTPSender: smtpSender,
+			},
+			S3Config: config.S3Config{
+				Region:   reg,
+				Endpoint: endp,
+				Bucket:   buck,
+			},
+		}
+		if err := config.SaveConfig(newCfg); err != nil {
+			return vaultErrorMsg(err)
+		}
+
+		newStorage, err := s3.New(ctx, &newCfg.S3Config, m.log)
+		if err != nil {
+			return vaultErrorMsg(err)
+		}
+
+		return setupFinishedMsg{
+			Storage: newStorage,
+			Config:  newCfg,
+			Meta:    m.meta,
+		}
+	}
+}
