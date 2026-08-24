@@ -22,6 +22,7 @@ type Config struct {
 	SMTPConfig SMTPConfig              `json:"user_config"`
 	S3Config   S3Config                `json:"s3_config"`
 	Generator  crypto.GeneratorOptions `json:"generator_options"`
+	Keymaps    map[string]string       `json:"keymaps,omitempty"`
 }
 
 type S3Config struct {
