@@ -24,6 +24,7 @@ const (
 	authState                                 // Entering the master password
 	otpState                                  // Enter OTP
 	vaultState                                // Searching for and selecting a entry
+	settingsState							  // Application settings
 	customizeKeymapsState                     // View and customize keymaps
 	genConfigState                            // View and customize password generator
 	detailsState                              // View entry details
