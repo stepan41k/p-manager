@@ -19,20 +19,20 @@ func (m *Model) View() tea.View {
 	switch m.state {
 	case setupState:
 		content = m.renderForm("INITIAL SETUP")
-		footer = m.help.View(m.keys.Common)
+		footer = m.help.View(m.keys.Setup)
 	case otpState:
 		content = m.otpView()
-		footer = m.help.View(m.keys.Common)
+		footer = m.help.View(m.keys.OTP)
 	case authState:
 		content = m.authView()
-		footer = m.help.View(m.keys.Common)
+		footer = m.help.View(m.keys.Auth)
 	case vaultState:
 		v := tea.NewView(m.vaultView())
 		v.AltScreen = true
 		return v
 	case customizeKeymapsState:
 		content = m.keymapView()
-		footer = m.help.View(m.keys.Common)
+		footer = m.help.View(m.keys.KeyMapConfig)
 	case genConfigState:
 		content = m.genConfigView()
 		footer = m.help.View(m.keys.GenConfig)
@@ -41,13 +41,17 @@ func (m *Model) View() tea.View {
 		footer = m.help.View(m.keys.Details)
 	case createState:
 		content = m.createView()
-		footer = m.help.View(m.keys.Common)
+		footer = m.help.View(m.keys.Create)
 	case editState:
 		content = m.editView()
-		footer = m.help.View(m.keys.Common)
+		footer = m.help.View(m.keys.Edit)
 	case deleteState:
 		content = m.deleteView()
 		footer = m.help.View(m.keys.Delete)
+	case settingsState:
+		content = m.settingsView()
+		footer = m.help.View(m.keys.Settings)
+
 	default:
 		content = "Unknown State"
 	}
@@ -326,5 +330,38 @@ func (m *Model) genConfigView() string {
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, rows...)
+
+	return s.Card.Render(content)
+}
+
+func (m *Model) settingsView() string {
+	s := m.styles
+	header := s.Title.Foreground(lipgloss.Color("205")).Render("── APP CONFIGURATION ──")
+
+	labels := []string{
+		"S3 Region:", "S3 Endpoint:", "S3 Bucket:", "Access Key:", "Secret Key:",
+		"SMTP Host:", "SMTP Port:", "Sender Email:", "SMTP Pass:", "Target Email:",
+	}
+
+	var inputViews []string
+	for i := range m.inputs {
+		prefix := "  "
+		if i == m.focusIndex {
+			prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> ")
+		}
+
+		label := s.DetailLabel.Render(labels[i])
+		row := fmt.Sprintf("%s%s %s", prefix, label, m.inputs[i].View())
+		inputViews = append(inputViews, row)
+	}
+
+	inputs := lipgloss.JoinVertical(lipgloss.Left, inputViews...)
+
+	errStr := ""
+	if m.errorMessage != "" {
+		errStr = lipgloss.NewStyle().Foreground(lipgloss.Color("208")).MarginTop(1).Render(m.errorMessage)
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Left, header, "", inputs, errStr)
 	return s.Card.Render(content)
 }
