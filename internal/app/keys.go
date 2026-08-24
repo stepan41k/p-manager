@@ -1,10 +1,14 @@
 package app
 
 import (
+	"fmt"
+	"slices"
+
 	"charm.land/bubbles/v2/key"
 )
 
 type KeyMap struct {
+	Common       commonKeyMap
 	Setup        setupKeyMap
 	Auth         authKeyMap
 	OTP          otpKeyMap
@@ -17,70 +21,61 @@ type KeyMap struct {
 	Delete       deleteKeyMap
 }
 
-type setupKeyMap struct {
-	Enter    key.Binding
+type commonKeyMap struct {
 	Next     key.Binding
 	Previous key.Binding
+	Generate key.Binding
+	Submit   key.Binding
+	Cancel   key.Binding
 	Quit     key.Binding
+}
+
+type setupKeyMap struct {
+	*commonKeyMap
 }
 
 type authKeyMap struct {
-	Enter key.Binding
-	Quit  key.Binding
+	*commonKeyMap
 }
 
 type otpKeyMap struct {
-	Enter key.Binding
-	Quit  key.Binding
+	*commonKeyMap
 }
 
 type vaultKeyMap struct {
-	ConfigKeys key.Binding
-	GenConfig  key.Binding
-	Create     key.Binding
-	Details    key.Binding
-	Edit       key.Binding
-	Delete     key.Binding
-	Quit       key.Binding
+	*commonKeyMap
+	ConfigKeys  key.Binding
+	GenConfig   key.Binding
+	Create      key.Binding
+	Details     key.Binding
+	Edit        key.Binding
+	Delete      key.Binding
+	Unauthorize key.Binding
 }
 
 type keyMapConfig struct {
-	Save     key.Binding
-	Next     key.Binding
-	Previous key.Binding
-	Quit     key.Binding
+	*commonKeyMap
 }
 
 type genConfigKeyMap struct {
-	Next key.Binding
-	Previous key.Binding
-	ReduceLength key.Binding
+	*commonKeyMap
+	ReduceLength   key.Binding
 	IncreaseLength key.Binding
-	Switch key.Binding
-	Genrate key.Binding
-	Quit key.Binding
+	Switch         key.Binding
 }
 
 type detailsKeyMap struct {
-	Back key.Binding
+	*commonKeyMap
 	Copy key.Binding
 	View key.Binding
 }
 
 type createKeyMap struct {
-	Submit   key.Binding
-	Cancel   key.Binding
-	Next     key.Binding
-	Previous key.Binding
-	Generate key.Binding
+	*commonKeyMap
 }
 
 type editKeyMap struct {
-	Submit   key.Binding
-	Cancel   key.Binding
-	Next     key.Binding
-	Previous key.Binding
-	Generate key.Binding
+	*commonKeyMap
 }
 
 type deleteKeyMap struct {
@@ -89,64 +84,56 @@ type deleteKeyMap struct {
 }
 
 func NewKeyMap() KeyMap {
+	commonKeyMap := commonKeyMap{
+		Next:     key.NewBinding(key.WithKeys("down", "tab"), key.WithHelp("↓ | tab", "down")),
+		Previous: key.NewBinding(key.WithKeys("up", "shift+tab"), key.WithHelp("↑ | shift+tab", "up")),
+		Generate: key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("ctrl+g", "generate")),
+		Submit:   key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "submit")),
+		Cancel:   key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
+		Quit:     key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl + c", "exit")),
+	}
+
 	return KeyMap{
+		Common: commonKeyMap,
 		Setup: setupKeyMap{
-			Enter:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "sign in")),
-			Next:     key.NewBinding(key.WithKeys("tab", "down"), key.WithHelp("↓ | tab", "down")),
-			Previous: key.NewBinding(key.WithKeys("shift+tab", "up"), key.WithHelp("↑ | shift+tab", "up")),
-			Quit:     key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl + c", "exit")),
+			commonKeyMap: &commonKeyMap,
 		},
 		Auth: authKeyMap{
-			Enter: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "sign in")),
-			Quit:  key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl + c", "exit")),
+			commonKeyMap: &commonKeyMap,
 		},
 		OTP: otpKeyMap{
-			Enter: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "sign in")),
-			Quit:  key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl + c", "exit")),
+			commonKeyMap: &commonKeyMap,
 		},
 		Vault: vaultKeyMap{
-			ConfigKeys: key.NewBinding(key.WithKeys("ctrl+k"), key.WithHelp("ctrl+k", "customize keymaps")),
-			GenConfig:  key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("ctrl+p", "customize password generator")),
-			Create:     key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "create new vault")),
-			Details:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "show details")),
-			Edit:       key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("ctrl+e", "edit")),
-			Delete:     key.NewBinding(key.WithKeys("ctrl+d"), key.WithHelp("ctrl+d", "delete")),
-			Quit:       key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "exit")),
+			commonKeyMap: &commonKeyMap,
+			ConfigKeys:   key.NewBinding(key.WithKeys("ctrl+k"), key.WithHelp("ctrl+k", "customize keymaps")),
+			GenConfig:    key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("ctrl+p", "customize password generator")),
+			Create:       key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "create new vault")),
+			Details:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "show details")),
+			Edit:         key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("ctrl+e", "edit")),
+			Delete:       key.NewBinding(key.WithKeys("ctrl+d"), key.WithHelp("ctrl+d", "delete")),
+			Unauthorize:  key.NewBinding(key.WithKeys("ctrl+q"), key.WithHelp("ctrl+q", "unathorize")),
 		},
 		KeyMapConfig: keyMapConfig{
-			Save:     key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "sign in")),
-			Next:     key.NewBinding(key.WithKeys("down", "tab"), key.WithHelp("↓ | tab", "down")),
-			Previous: key.NewBinding(key.WithKeys("up", "shift+tab"), key.WithHelp("↑ | shift+tab", "up")),
-			Quit:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "exit")),
+			commonKeyMap: &commonKeyMap,
 		},
 
 		GenConfig: genConfigKeyMap{
-			Next: key.NewBinding(key.WithKeys("down"), key.WithHelp("down", "↓")),
-			Previous: key.NewBinding(key.WithKeys("up"), key.WithHelp("up", "↑")),
-			ReduceLength: key.NewBinding(key.WithKeys("left"), key.WithHelp("left", "←")),
+			commonKeyMap:   &commonKeyMap,
+			ReduceLength:   key.NewBinding(key.WithKeys("left"), key.WithHelp("left", "←")),
 			IncreaseLength: key.NewBinding(key.WithKeys("right"), key.WithHelp("right", "→")),
-			Switch: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "switch")),
-			Genrate: key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "generate")),
-			Quit: key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "exit")),
+			Switch:         key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "switch")),
 		},
 		Details: detailsKeyMap{
-			Back: key.NewBinding(key.WithKeys("esc", "backspace"), key.WithHelp("esc", "back")),
-			Copy: key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "copy")),
-			View: key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "view")),
+			commonKeyMap: &commonKeyMap,
+			Copy:         key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "copy")),
+			View:         key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "view")),
 		},
 		Create: createKeyMap{
-			Submit:   key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "save")),
-			Cancel:   key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
-			Next:     key.NewBinding(key.WithKeys("tab", "down"), key.WithHelp("tab", "down")),
-			Previous: key.NewBinding(key.WithKeys("shift+tab", "up"), key.WithHelp("shift+tab", "up")),
-			Generate: key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("ctrl+g", "generate")),
+			commonKeyMap: &commonKeyMap,
 		},
 		Edit: editKeyMap{
-			Submit:   key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "save")),
-			Cancel:   key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
-			Next:     key.NewBinding(key.WithKeys("tab", "down"), key.WithHelp("tab", "down")),
-			Previous: key.NewBinding(key.WithKeys("shift+tab", "up"), key.WithHelp("shift+tab", "up")),
-			Generate: key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("ctrl+g", "generate")),
+			commonKeyMap: &commonKeyMap,
 		},
 		Delete: deleteKeyMap{
 			Yes: key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "yes")),
@@ -155,25 +142,123 @@ func NewKeyMap() KeyMap {
 	}
 }
 
-func (k setupKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Enter, k.Next, k.Previous, k.Quit} }
-func (k authKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Enter, k.Quit} }
-func (k otpKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Enter, k.Quit} }
-func (k vaultKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.ConfigKeys, k.GenConfig, k.Create, k.Details, k.Edit, k.Delete, k.Quit} }
-func (k keyMapConfig) ShortHelp() []key.Binding { return []key.Binding{k.Save, k.Next, k.Previous, k.Quit} }
-func (k genConfigKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Next, k.Previous, k.ReduceLength, k.IncreaseLength, k.Switch, k.Genrate, k.Quit} }
-func (k detailsKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Back, k.Copy, k.View} }
-func (k createKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate} }
-func (k editKeyMap) ShortHelp() []key.Binding {	return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate} }
+func (k commonKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Next, k.Previous, k.Submit, k.Generate, k.Cancel, k.Quit}
+}
+func (k setupKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Submit, k.Next, k.Previous, k.Quit}
+}
+func (k authKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Submit, k.Quit} }
+func (k otpKeyMap) ShortHelp() []key.Binding  { return []key.Binding{k.Submit, k.Quit} }
+func (k vaultKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.ConfigKeys, k.GenConfig, k.Create, k.Details, k.Edit, k.Delete, k.Unauthorize, k.Quit}
+}
+func (k keyMapConfig) ShortHelp() []key.Binding {
+	return []key.Binding{k.Submit, k.Next, k.Previous, k.Quit}
+}
+func (k genConfigKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Next, k.Previous, k.ReduceLength, k.IncreaseLength, k.Switch, k.Generate, k.Cancel}
+}
+func (k detailsKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Cancel, k.Copy, k.View} }
+func (k createKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate}
+}
+func (k editKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Submit, k.Cancel, k.Next, k.Previous, k.Generate}
+}
 func (k deleteKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Yes, k.No} }
 
+func (k commonKeyMap) FullHelp() [][]key.Binding    { return [][]key.Binding{k.ShortHelp()} }
+func (k setupKeyMap) FullHelp() [][]key.Binding     { return [][]key.Binding{k.ShortHelp()} }
+func (k authKeyMap) FullHelp() [][]key.Binding      { return [][]key.Binding{k.ShortHelp()} }
+func (k otpKeyMap) FullHelp() [][]key.Binding       { return [][]key.Binding{k.ShortHelp()} }
+func (k vaultKeyMap) FullHelp() [][]key.Binding     { return [][]key.Binding{k.ShortHelp()} }
+func (k keyMapConfig) FullHelp() [][]key.Binding    { return [][]key.Binding{k.ShortHelp()} }
+func (k genConfigKeyMap) FullHelp() [][]key.Binding { return [][]key.Binding{k.ShortHelp()} }
+func (k detailsKeyMap) FullHelp() [][]key.Binding   { return [][]key.Binding{k.ShortHelp()} }
+func (k createKeyMap) FullHelp() [][]key.Binding    { return [][]key.Binding{k.ShortHelp()} }
+func (k editKeyMap) FullHelp() [][]key.Binding      { return [][]key.Binding{k.ShortHelp()} }
+func (k deleteKeyMap) FullHelp() [][]key.Binding    { return [][]key.Binding{k.ShortHelp()} }
 
-func (k setupKeyMap) FullHelp() [][]key.Binding   { return [][]key.Binding{k.ShortHelp()} }
-func (k authKeyMap) FullHelp() [][]key.Binding    { return [][]key.Binding{k.ShortHelp()} }
-func (k otpKeyMap) FullHelp() [][]key.Binding     { return [][]key.Binding{k.ShortHelp()} }
-func (k vaultKeyMap) FullHelp() [][]key.Binding   { return [][]key.Binding{k.ShortHelp()} }
-func (k keyMapConfig) FullHelp() [][]key.Binding {return [][]key.Binding{k.ShortHelp()}}
-func (k genConfigKeyMap) FullHelp() [][]key.Binding {return [][]key.Binding{k.ShortHelp()}}
-func (k detailsKeyMap) FullHelp() [][]key.Binding { return [][]key.Binding{k.ShortHelp()} }
-func (k createKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
-func (k editKeyMap) FullHelp() [][]key.Binding    { return [][]key.Binding{k.ShortHelp()} }
-func (k deleteKeyMap) FullHelp() [][]key.Binding  { return [][]key.Binding{k.ShortHelp()} }
+func (m *Model) areCategoriesConflicting(cat1, name1, cat2, name2 string) bool {
+	if cat1 == cat2 && name1 == name2 {
+		return false
+	}
+
+	if cat1 == cat2 {
+		return true
+	}
+
+	if name1 == "Quit" || name2 == "Quit" {
+		return true
+	}
+
+	return false
+}
+
+var reservedVaultKeys = map[string]string{
+	"down":     "List Navigation (Down)",
+	"up":       "List Navigation (Up)",
+	"j":        "List Navigation (Down)",
+	"k":        "List Navigation (Up)",
+	"pageup":   "List Page Up",
+	"pagedown": "List Page Down",
+	"home":     "List Home",
+	"end":      "List End",
+	"/":        "List Search/Filter",
+}
+
+func (m *Model) findKeyConflict(newKey string, targetIndex int) string {
+	targetItem := m.bindList[targetIndex]
+
+	if targetItem.Category == "VAULT" {
+		if reservedAction, isReserved := reservedVaultKeys[newKey]; isReserved {
+			return fmt.Sprintf("Key '%s' is reserved for '%s'!", newKey, reservedAction)
+		}
+	}
+
+	for i, item := range m.bindList {
+		if i == targetIndex {
+			continue
+		}
+
+		if m.areCategoriesConflicting(targetItem.Category, targetItem.Name, item.Category, item.Name) {
+			if item.Binding != nil {
+				if slices.Contains(item.Binding.Keys(), newKey) {
+					return fmt.Sprintf("Key '%s' is used for '%s' in %s!", newKey, item.Name, item.Category)
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+func (m *Model) exportCustomKeys() map[string]string {
+	customKeys := make(map[string]string)
+
+	for _, item := range m.bindList {
+		if item.Binding != nil && len(item.Binding.Keys()) > 0 {
+			keyID := fmt.Sprintf("%s.%s", item.Category, item.Name)
+			customKeys[keyID] = item.Binding.Keys()[0]
+		}
+	}
+	return customKeys
+}
+
+func (m *Model) applyCustomKeys() {
+	if m.config == nil || len(m.config.Keymaps) == 0 {
+		return
+	}
+
+	m.setupKeymapList()
+
+	for _, item := range m.bindList {
+		keyID := fmt.Sprintf("%s.%s", item.Category, item.Name)
+		if savedKey, ok := m.config.Keymaps[keyID]; ok && savedKey != "" {
+			item.Binding.SetKeys(savedKey)
+			desc := item.Binding.Help().Desc
+			item.Binding.SetHelp(savedKey, desc)
+		}
+	}
+}
