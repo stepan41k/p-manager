@@ -2,7 +2,9 @@ package app
 
 import (
 	"charm.land/bubbles/v2/textinput"
+	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/crypto"
+	"github.com/zalando/go-keyring"
 )
 
 func (m *Model) SetupInitialInputs() {
@@ -81,7 +83,7 @@ func (m *Model) setupKeymapList() {
 		{Category: "P-GENERATOR-CONFIG", Name: "ReduceLength", Binding: &m.keys.GenConfig.ReduceLength},
 		{Category: "P-GENERATOR-CONFIG", Name: "IncreaseLength", Binding: &m.keys.GenConfig.IncreaseLength},
 		{Category: "P-GENERATOR-CONFIG", Name: "Switch", Binding: &m.keys.GenConfig.Switch},
-		
+
 		{Category: "DETAILS", Name: "Copy", Binding: &m.keys.Details.Copy},
 		{Category: "DETAILS", Name: "View", Binding: &m.keys.Details.View},
 	}
@@ -122,6 +124,54 @@ func (m *Model) setupFormInputs(values []string) {
 			t.SetValue(values[i])
 		}
 
+		m.inputs[i] = t
+	}
+
+	m.inputs[0].Focus()
+}
+
+func (m *Model) setupSettingsInputs() {
+	m.focusIndex = 0
+	m.inputs = make([]textinput.Model, 10)
+
+	accKey, _ := keyring.Get("p-manager", "access_key")
+	secKey, _ := keyring.Get("p-manager", "secret_key")
+	smtpPass, _ := keyring.Get("p-manager", "smtp_password")
+
+	cfg := m.config
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+
+	values := []string{
+		cfg.S3Config.Region,
+		cfg.S3Config.Endpoint,
+		cfg.S3Config.Bucket,
+		accKey,
+		secKey,
+		cfg.SMTPConfig.SMTPHost,
+		cfg.SMTPConfig.SMTPPort,
+		cfg.SMTPConfig.SMTPSender,
+		smtpPass,
+		cfg.SMTPConfig.Email,
+	}
+
+	placeholders := []string{
+		"S3 Region", "S3 Endpoint", "S3 Bucket", "AWS Access Key", "AWS Secret Key",
+		"SMTP Host", "SMTP Port", "Sender Email", "Sender Password", "Target Email",
+	}
+
+	for i := range m.inputs {
+		t := textinput.New()
+		t.SetWidth(40)
+		t.Prompt = ""
+		t.Placeholder = placeholders[i]
+		t.SetValue(values[i])
+
+		if i == 3 || i == 4 || i == 8 {
+			t.EchoMode = textinput.EchoPassword
+			t.EchoCharacter = '*'
+		}
 		m.inputs[i] = t
 	}
 
