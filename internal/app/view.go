@@ -19,29 +19,20 @@ func (m *Model) View() tea.View {
 	switch m.state {
 	case setupState:
 		content = m.renderForm("INITIAL SETUP")
-		footer = m.help.View(m.keys.Setup)
+		footer = m.help.View(m.keys.Common)
 	case otpState:
 		content = m.otpView()
-		footer = m.help.View(m.keys.OTP)
+		footer = m.help.View(m.keys.Common)
 	case authState:
 		content = m.authView()
-		footer = m.help.View(m.keys.Auth)
+		footer = m.help.View(m.keys.Common)
 	case vaultState:
-		content = m.vaultView()
-
-		v := tea.NewView(lipgloss.Place(
-			m.width, m.height,
-			lipgloss.Left, lipgloss.Top,
-			content,
-			lipgloss.WithWhitespaceChars(" "),
-		))
-
+		v := tea.NewView(m.vaultView())
 		v.AltScreen = true
-
 		return v
 	case customizeKeymapsState:
 		content = m.keymapView()
-		footer = m.help.View(m.keys.KeyMapConfig)
+		footer = m.help.View(m.keys.Common)
 	case genConfigState:
 		content = m.genConfigView()
 		footer = m.help.View(m.keys.GenConfig)
@@ -50,10 +41,10 @@ func (m *Model) View() tea.View {
 		footer = m.help.View(m.keys.Details)
 	case createState:
 		content = m.createView()
-		footer = m.help.View(m.keys.Create)
+		footer = m.help.View(m.keys.Common)
 	case editState:
 		content = m.editView()
-		footer = m.help.View(m.keys.Edit)
+		footer = m.help.View(m.keys.Common)
 	case deleteState:
 		content = m.deleteView()
 		footer = m.help.View(m.keys.Delete)
@@ -145,12 +136,12 @@ func (m *Model) authView() string {
 		Foreground(lipgloss.Color("241")).
 		Bold(true)
 
+	row := fmt.Sprintf("%s %s", labelStyle.Render("Master Password:"), m.inputs[0].View())
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		header,
 		"",
-		labelStyle.Render("Master Password:"),
-		m.inputs[0].View(),
+		row,
 		errStr,
 	)
 
@@ -205,12 +196,12 @@ func (m *Model) detailsView() string {
 	)
 
 	if m.selectedItem.Note != "" {
-        content = lipgloss.JoinVertical(
-            lipgloss.Left,
-            content,
-            drawRow("Note:", m.selectedItem.Note, s.DetailValue),
-        )
-    }
+		content = lipgloss.JoinVertical(
+			lipgloss.Left,
+			content,
+			drawRow("Note:", m.selectedItem.Note, s.DetailValue),
+		)
+	}
 
 	return s.Card.Render(content)
 }
@@ -227,7 +218,7 @@ func (m *Model) deleteView() string {
 	if m.errorMessage != "" {
 		errStr = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render("\n" + m.errorMessage)
 	}
-	
+
 	question := fmt.Sprintf("Are you sure you want to remove the password for %s?",
 		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205")).Render(m.selectedItem.Resource))
 
@@ -263,7 +254,10 @@ func (m *Model) keymapView() string {
 			nameStyle = nameStyle.Foreground(lipgloss.Color("255")).Bold(true)
 		}
 
-		currentKey := item.Binding.Keys()[0]
+		currentKey := "none"
+		if item.Binding != nil && len(item.Binding.Keys()) > 0 {
+			currentKey = item.Binding.Keys()[0]
+		}
 
 		row := fmt.Sprintf("%s%s : %s", prefix, nameStyle.Render(item.Name), keyStyle.Render(currentKey))
 		rows = append(rows, row)
@@ -271,14 +265,17 @@ func (m *Model) keymapView() string {
 
 	table := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
-	statusText := "↑/↓: choose | enter: rebind | esc: save and back"
+	var statusText string
+
 	if m.isRebinding {
-		statusText = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true).Render(m.errorMessage)
+		statusText = fmt.Sprintf("Press new key for '%s' (esc to cancel)...", m.bindList[m.keymapIndex].Name)
 	} else if m.errorMessage != "" {
-		statusText = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(m.errorMessage)
+		statusText = m.errorMessage
+	} else {
+		statusText = ""
 	}
 
-	help := lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("240")).MarginTop(1).Render(statusText)
+	help := lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("205")).MarginTop(1).Render(statusText)
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
