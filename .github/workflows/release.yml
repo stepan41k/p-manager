@@ -52,7 +52,7 @@ jobs:
           GOOS: windows
           GOARCH: amd64
         run: |
-          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o p-manager.exe ./cmd/vault
+          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o p-manager.exe ./cmd/p-manager
 
       - name: Compile Inno Setup Installer
         run: |
