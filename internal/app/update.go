@@ -49,7 +49,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		if key.Matches(msg, m.keys.Common.Quit) {
 			m.WipeSecrets()
-			m.WipeMeta()
+			m.WipeAll()
 			return m, tea.Quit
 		}
 		m.lastActivity = time.Now()
@@ -59,7 +59,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if time.Since(m.lastActivity) >= 5*time.Minute {
 				m.WipeSecrets()
 				m.vaultList.SetItems([]list.Item{})
-				m.state = authState
+				m.SetState(authState)
 				m.setupAuthInput()
 				m.errorMessage = "Vault locked due to inactivity"
 				return m, nil
@@ -68,8 +68,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, checkInactivityTicker(10*time.Second))
 
 	case accessDeniedMsg:
-		m.WipeSecrets()
-		m.WipeMeta()
+		m.WipeAll()
 		m.errorMessage = "too many attempts"
 		time.Sleep(5 * time.Second)
 		return m, tea.Quit
@@ -104,19 +103,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.storage = msg.Storage
 		m.config = &msg.Config
 		m.meta = msg.Meta
-		m.state = authState
+		m.SetState(authState)
 		m.setupAuthInput()
 		m.errorMessage = "Setup finished! Enter master password."
 		return m, textinput.Blink
 
 	case deviceRegisteredMsg:
-		m.state = vaultState
-		m.errorMessage = ""
+		m.SetState(vaultState)
+		m.errorMessage = "New device registered..."
 		return m, m.fetchVaultCmd()
 
 	case otpEmailSentMsg:
-		m.state = otpState
-		m.errorMessage = ""
+		m.SetState(otpState)
+		m.errorMessage = "OTP sent to email..."
 		m.setupOTPInput()
 		return m, textinput.Blink
 
@@ -124,8 +123,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vaultList.SetItems(checkAndMarkDuplicates(msg))
 		m.vaultList.Title = "My passwords"
 		m.vaultList.Styles.Title = m.styles.Title
-		m.state = vaultState
-		m.errorMessage = ""
+		m.SetState(vaultState)
+		m.errorMessage = "Loading..."
 		m.lastActivity = time.Now()
 		m.log.Info("start ticker")
 		cmds = append(cmds, checkInactivityTicker(10*time.Second))
@@ -249,8 +248,8 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vaultKey = vaultKey
 
 			if m.checkIsTrustedDevice() {
-				m.state = vaultState
-				m.errorMessage = "Устройство распознано. Загрузка..."
+				m.SetState(vaultState)
+				m.errorMessage = "Device recognized. Loading..."
 				return m, m.fetchVaultCmd()
 			}
 
@@ -284,17 +283,17 @@ func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keys.Common.Submit):
 			if time.Now().After(m.otpExpiresAt) {
-				m.errorMessage = "Code expired! Please enter master password again."
 				m.WipeSecrets()
-				m.state = authState
+				m.SetState(authState)
+				m.errorMessage = "Code expired! Please enter master password again."
 				return m, nil
 			}
 
 			m.otpAttempts++
 			if m.otpAttempts > 5 {
-				m.errorMessage = "Too many failed attempts! Access blocked."
 				m.WipeSecrets()
-				m.state = authState
+				m.SetState(authState)
+				m.errorMessage = "Too many failed attempts! Access blocked."
 				return m, nil
 			}
 
@@ -303,7 +302,7 @@ func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
 			isEqual := subtle.ConstantTimeCompare(inputHash[:], m.expectedOTPHash[:]) == 1
 
 			if isEqual {
-				m.state = vaultState
+				m.SetState(vaultState)
 				m.expectedOTPHash = [32]byte{}
 				m.errorMessage = "Code verified! Registering device..."
 
@@ -315,7 +314,7 @@ func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case key.Matches(msg, m.keys.Common.Quit):
-			m.state = authState
+			m.SetState(authState)
 			return m, nil
 		}
 	}
@@ -327,9 +326,28 @@ func (m *Model) updateOTP(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
+		itemsCount := len(m.vaultList.Items())
+
+		if itemsCount > 0 {
+			switch {
+			case key.Matches(msg, m.keys.Common.Next):
+				if m.vaultList.Index() == itemsCount-1 {
+					m.vaultList.Select(0)
+					return m, nil
+				}
+
+			case key.Matches(msg, m.keys.Common.Previous):
+				if m.vaultList.Index() == 0 {
+					m.vaultList.Select(itemsCount - 1)
+					return m, nil
+				}
+			}
+		}
+
 		switch {
+
 		case key.Matches(msg, m.keys.Vault.Create):
-			m.state = createState
+			m.SetState(createState)
 			m.setupFormInputs(nil)
 			return m, nil
 		case key.Matches(msg, m.keys.Vault.Edit):
@@ -337,7 +355,7 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			if item, ok := selected.(VaultItem); ok {
 				m.selectedItem = item
-				m.state = editState
+				m.SetState(editState)
 			}
 
 			m.setupFormInputs([]string{
@@ -355,7 +373,7 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			if item, ok := selected.(VaultItem); ok {
 				m.selectedItem = item
-				m.state = detailsState
+				m.SetState(detailsState)
 			}
 
 			return m, nil
@@ -363,26 +381,26 @@ func (m *Model) updateVault(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Vault.Delete):
 			if item, ok := m.vaultList.SelectedItem().(VaultItem); ok {
 				m.selectedItem = item
-				m.state = deleteState
+				m.SetState(deleteState)
 				return m, nil
 			}
 
 		case key.Matches(msg, m.keys.Vault.ConfigKeys):
-			m.state = customizeKeymapsState
+			m.SetState(customizeKeymapsState)
 			m.setupKeymapList()
 			return m, nil
 
 		case key.Matches(msg, m.keys.Vault.GenConfig):
-			m.state = genConfigState
+			m.SetState(genConfigState)
 			m.setupGenConfig()
 			return m, nil
 
 		case key.Matches(msg, m.keys.Vault.Unauthorize):
-			m.state = authState
+			m.SetState(authState)
 			m.WipeSecrets()
 			return m, nil
-		case key.Matches(msg, m.keys.Vault.Settings): 
-			m.state = settingsState
+		case key.Matches(msg, m.keys.Vault.Settings):
+			m.SetState(settingsState)
 			m.setupSettingsInputs()
 			return m, nil
 		}
@@ -399,7 +417,7 @@ func (m *Model) updateDetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Common.Cancel):
-			m.state = vaultState
+			m.SetState(vaultState)
 			return m, nil
 		case key.Matches(msg, m.keys.Details.Copy):
 			err := clipboard.WriteAll(m.selectedItem.Password)
@@ -439,7 +457,7 @@ func (m *Model) updateCreate(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch {
 		case key.Matches(msg, m.keys.Common.Cancel):
-			m.state = vaultState
+			m.SetState(vaultState)
 			return m, nil
 		case key.Matches(msg, m.keys.Common.Next):
 			if m.focusIndex == 3 {
@@ -531,7 +549,7 @@ func (m *Model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keys.Common.Cancel):
 			m.inputs[3].EchoMode = textinput.EchoPassword
-			m.state = vaultState
+			m.SetState(vaultState)
 			return m, nil
 
 		case key.Matches(msg, m.keys.Common.Next):
@@ -620,7 +638,7 @@ func (m *Model) updateDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, m.deleteAndUploadCmd()
 		case key.Matches(msg, m.keys.Delete.No):
-			m.state = vaultState
+			m.SetState(vaultState)
 
 			return m, nil
 		}
@@ -672,19 +690,23 @@ func (m *Model) updateKeymaps(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.log.Info("custom keymaps saved to config.json")
 				}
 			}
-			m.state = vaultState
+			m.SetState(vaultState)
 			m.errorMessage = ""
 			return m, nil
 
 		case key.Matches(msg, m.keys.Common.Previous):
 			if m.keymapIndex > 0 {
 				m.keymapIndex--
+			} else {
+				m.keymapIndex = len(m.bindList)-1
 			}
 			return m, nil
 
 		case key.Matches(msg, m.keys.Common.Next):
 			if m.keymapIndex < len(m.bindList)-1 {
 				m.keymapIndex++
+			} else {
+				m.keymapIndex = 0
 			}
 			return m, nil
 
@@ -706,18 +728,22 @@ func (m *Model) updateGenConfig(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.config.Generator = m.genOpts
 				_ = config.SaveConfig(*m.config)
 			}
-			m.state = vaultState
+			m.SetState(vaultState)
 			return m, nil
 
 		case key.Matches(msg, m.keys.Common.Previous):
 			if m.genOptIndex > 0 {
 				m.genOptIndex--
+			} else {
+				m.genOptIndex = 4
 			}
 			return m, nil
 
 		case key.Matches(msg, m.keys.Common.Next):
 			if m.genOptIndex < 4 {
 				m.genOptIndex++
+			} else {
+				m.genOptIndex = 0
 			}
 			return m, nil
 
@@ -765,7 +791,7 @@ func (m *Model) updateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Common.Cancel):
-			m.state = vaultState
+			m.SetState(vaultState)
 			return m, nil
 
 		case key.Matches(msg, m.keys.Settings.RevokeDevices):
@@ -785,16 +811,17 @@ func (m *Model) updateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Common.Next):
 			m.inputs[m.focusIndex].Blur()
 			m.focusIndex = (m.focusIndex + 1) % len(m.inputs)
-			return m, m.inputs[m.focusIndex].Focus()
-
+			m.inputs[m.focusIndex].Focus()
+			return m, nil
 		case key.Matches(msg, m.keys.Common.Previous):
 			m.inputs[m.focusIndex].Blur()
 			if m.focusIndex-1 < 0 {
 				m.focusIndex = len(m.inputs) - 1
 			} else {
-				m.focusIndex--
+				m.focusIndex = (m.focusIndex - 1) % len(m.inputs)
 			}
-			return m, m.inputs[m.focusIndex].Focus()
+			m.inputs[m.focusIndex].Focus()
+			return m, nil
 		}
 	}
 
