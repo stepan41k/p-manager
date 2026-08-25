@@ -6,7 +6,7 @@ before:
 
 builds:
   - id: p-manager
-    main: ./cmd/vault
+    main: ./cmd/p-manager
     binary: p-manager
     env:
       - CGO_ENABLED=0
