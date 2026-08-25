@@ -1,0 +1,14 @@
+* @stepan41k
+
+# GitHub configuration (CI/CD, templates, Dependabot)
+/.github/ @stepan41k
+
+# Go dependency and build files
+/go.mod @stepan41k
+/go.sum @stepan41k
+/Makefile @stepan41k
+
+# Application source code
+/cmd/ @stepan41k
+/internal/ @stepan41k
+/other/ @stepan41k
