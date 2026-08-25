@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+
+contact_links:
+    - name: Security Vulnerability
+      url: https://github.com/stepan41k/p-manager/security/policy
+      about: Please do NOT create public issues for problems involving encryption or password leaks. Click here to submit a secure report.

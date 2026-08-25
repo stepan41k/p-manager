@@ -1,0 +1,77 @@
+name: "Bug Report"
+description: "Report an error or malfunction in p-manager"
+title: "[BUG]: "
+labels: ["bug"]
+assignees:
+  - stepan41k
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+          Thank you for helping to improve p-manager! Please fill out the form below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Error description
+      description: A clear and concise description of what is not working correctly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can I reproduce this error?
+      placeholder: |
+          1. Launch 'p-manager'
+          2. Click '...'
+          3. See an error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What was supposed to happen instead of the error?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS (Intel)
+        - macOS (Apple Silicon / M-series)
+        - Windows (WSL)
+        - Windows (Native)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal / Emulator
+      description: Since this is a TUI application, specify your terminal emulator (e.g., Alacritty, Kitty, iTerm2, tmux, Gnome Terminal).
+      placeholder: Alacritty + tmux
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: p-manager version
+      description: Specify the version or commit hash (e.g., v1.0.0 or from 'p-manager --version')
+      placeholder: v1.0.0
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Screenshots
+      description: Paste the logs or drag and drop screenshots/a GIF of the terminal, if available.
+      render: shell
