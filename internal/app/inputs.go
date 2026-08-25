@@ -75,6 +75,7 @@ func (m *Model) setupKeymapList() {
 		{Category: "VAULT", Name: "Details", Binding: &m.keys.Vault.Details},
 		{Category: "VAULT", Name: "Keymaps Config", Binding: &m.keys.Vault.ConfigKeys},
 		{Category: "VAULT", Name: "P-Generator Config", Binding: &m.keys.Vault.GenConfig},
+		{Category: "VAULT", Name: "Settings", Binding: &m.keys.Vault.Settings},
 		{Category: "VAULT", Name: "Create", Binding: &m.keys.Vault.Create},
 		{Category: "VAULT", Name: "Edit", Binding: &m.keys.Vault.Edit},
 		{Category: "VAULT", Name: "Delete", Binding: &m.keys.Vault.Delete},
@@ -86,6 +87,8 @@ func (m *Model) setupKeymapList() {
 
 		{Category: "DETAILS", Name: "Copy", Binding: &m.keys.Details.Copy},
 		{Category: "DETAILS", Name: "View", Binding: &m.keys.Details.View},
+
+		{Category: "SETTINGS", Name: "Revoke Devices", Binding: &m.keys.Settings.RevokeDevices},
 	}
 }
 
