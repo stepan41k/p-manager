@@ -133,7 +133,7 @@ func (m *Model) authView() string {
 	if m.errorMessage != "" {
 		errStr = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("9")).
-			Render(m.errorMessage)
+			Render("\n" + m.errorMessage)
 	}
 
 	labelStyle := lipgloss.NewStyle().
@@ -343,6 +343,11 @@ func (m *Model) settingsView() string {
 		"SMTP Host:", "SMTP Port:", "Sender Email:", "SMTP Pass:", "Target Email:",
 	}
 
+	settingLabelStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Bold(true).
+			Width(15)
+	
 	var inputViews []string
 	for i := range m.inputs {
 		prefix := "  "
@@ -350,7 +355,7 @@ func (m *Model) settingsView() string {
 			prefix = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Render("> ")
 		}
 
-		label := s.DetailLabel.Render(labels[i])
+		label := settingLabelStyle.Render(labels[i])
 		row := fmt.Sprintf("%s%s %s", prefix, label, m.inputs[i].View())
 		inputViews = append(inputViews, row)
 	}
