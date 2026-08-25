@@ -4,7 +4,7 @@ lint:
 	golangci-lint run ./...
 
 run:
-	clear && go run ./cmd/vault/main.go
+	clear && go run ./cmd/p-manager/main.go
 
 version:
 	go run ./cmd/vault/main.go -v
