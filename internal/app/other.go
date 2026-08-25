@@ -58,7 +58,7 @@ func (m *Model) runSetupCmd() tea.Cmd {
 			return vaultErrorMsg(err)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
 		storage, err := s3.New(context.Background(), &cfg.S3Config, m.log)
@@ -68,10 +68,15 @@ func (m *Model) runSetupCmd() tea.Cmd {
 
 		existingMeta, err := storage.DownloadMeta(ctx)
 
-		if err == nil && existingMeta != nil {
+		if err != nil {
+			error := fmt.Errorf("\nNetwork Error: Unable to connect to S3 storage.\nPlease check your internet connection and try again.")
+			return vaultErrorMsg(error)
+		}
+		
+		if existingMeta != nil {
 			authKey, _, err := crypto.DeriveMasterKeys(master, existingMeta.Salt)
 			if err != nil || crypto.VerifyMasterKey(authKey, existingMeta.Verifier) != nil {
-				return vaultErrorMsg(fmt.Errorf("неверный мастер-пароль от существующего сейфа"))
+				return vaultErrorMsg(fmt.Errorf("Incorrect master password for an existing vault"))
 			}
 
 			rawToken, _ := crypto.GenerateSalt(32)
