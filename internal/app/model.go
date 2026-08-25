@@ -11,7 +11,6 @@ import (
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
 
-	"github.com/atotto/clipboard"
 	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/crypto"
 	"github.com/stepan41k/p-manager/internal/storage/s3"
@@ -24,7 +23,7 @@ const (
 	authState                                 // Entering the master password
 	otpState                                  // Enter OTP
 	vaultState                                // Searching for and selecting a entry
-	settingsState							  // Application settings
+	settingsState                             // Application settings
 	customizeKeymapsState                     // View and customize keymaps
 	genConfigState                            // View and customize password generator
 	detailsState                              // View entry details
@@ -147,37 +146,26 @@ func NewModel(s3 *s3.Storage, cfg *config.Config, meta *s3.Metadata, log *slog.L
 }
 
 func (m *Model) WipeSecrets() {
-	m.log.Info("wiped secrets")
-
 	crypto.WipeBytes(m.authKey)
 	crypto.WipeBytes(m.vaultKey)
 
+	m.selectedItem = VaultItem{}
 	m.expectedOTPHash = [32]byte{}
-
 	m.otpAttempts = 0
 	m.authAttempts = 0
 
-	if m.selectedItem.Password != "" {
-		currentContent, err := clipboard.ReadAll()
-		if err == nil && currentContent == m.selectedItem.Password {
-			_ = clipboard.WriteAll("")
-		}
-	}
-
-	for i := range m.inputs {
-		m.inputs[i].SetValue("")
-	}
-
+	m.setupAuthInput()
 	m.errorMessage = ""
 }
 
-func (m *Model) WipeMeta() {
+func (m *Model) WipeAll() {
+	m.WipeSecrets()
+
 	if len(m.meta.Salt) > 0 {
 		crypto.WipeBytes(m.meta.Salt)
 	}
 	if len(m.meta.Verifier) > 0 {
 		crypto.WipeBytes(m.meta.Verifier)
 	}
-
 	m.meta = s3.Metadata{}
 }
