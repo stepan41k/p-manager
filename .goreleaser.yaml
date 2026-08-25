@@ -59,5 +59,30 @@ brews:
 checksum:
   name_template: "checksums.txt"
 
+release:
+  name_template: "v{{ .Version }} — Password Manager"
+  header: |
+    {{ readFile "RELEASE_NOTES.md" }}
+    ---
+    ### 📝 Detailed Changelog
+
 changelog:
   sort: asc
+  use: github
+  groups:
+    - title: "Features"
+      regexp: '^.*feat[(\w)]*:+.*$'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^.*fix[(\w)]*:+.*$'
+      order: 1
+    - title: "Maintenance & CI"
+      regexp: '^.*chore[(\w)]*:+.*$'
+      order: 2
+    - title: "Other Changes"
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "Merge branch"
