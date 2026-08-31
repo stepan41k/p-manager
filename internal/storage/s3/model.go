@@ -14,6 +14,6 @@ type Metadata struct {
 	Verifier       []byte          `json:"verifier"`
 	TrustedDevices []TrustedDevice `json:"trusted_devices"`
 
-	LockedUntil   time.Time `json:"locked_until,omitempty"`
+	LockedUntil   time.Time `json:"locked_until,omitzero"`
 	AuthFailCount int       `json:"auth_fail_count,omitempty"`
 }
