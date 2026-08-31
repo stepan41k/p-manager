@@ -129,6 +129,7 @@ func NewModel(s3 *s3.Storage, cfg *config.Config, meta *s3.Metadata, log *slog.L
 		log:       log,
 		keys:      keys,
 		help:      help,
+		lockout:   security.NewLockoutManager(),
 	}
 
 	m.setupKeymapList()
