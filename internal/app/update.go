@@ -1,7 +1,10 @@
 package app
 
 import (
+	"bytes"
+	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -229,17 +232,25 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			if err := crypto.VerifyMasterKey(authKey, m.meta.Verifier); err != nil {
-				m.authAttempts++
+				delay, count := m.lockout.RecordAuthFailure()
 				m.inputs[0].SetValue("")
 
-				if m.authAttempts >= 5 {
-					m.WipeSecrets()
-					return m, tea.Quit
+				if delay > 0 {
+					m.meta.LockedUntil = time.Now().Add(delay)
+					m.meta.AuthFailCount = count
+
+					go func() {
+						ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+						defer cancel()
+						metaData, _ := json.Marshal(m.meta)
+						_ = m.storage.Upload(ctx, "meta.json", bytes.NewReader(metaData))
+					}()
+
+					m.errorMessage = fmt.Sprintf("Locked out (%d fails)! Try again in %s", count, delay.Round(time.Second))
+					return m, nil
 				}
 
-				attemptsLeft := 5 - m.authAttempts
-				m.errorMessage = fmt.Sprintf("Invalid password! Attempts remaining: %d", attemptsLeft)
-
+				m.errorMessage = fmt.Sprintf("Invalid password! Fail count: %d", count)
 				return m, nil
 			}
 
@@ -698,7 +709,7 @@ func (m *Model) updateKeymaps(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.keymapIndex > 0 {
 				m.keymapIndex--
 			} else {
-				m.keymapIndex = len(m.bindList)-1
+				m.keymapIndex = len(m.bindList) - 1
 			}
 			return m, nil
 
