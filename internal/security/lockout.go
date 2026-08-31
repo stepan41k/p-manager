@@ -41,7 +41,7 @@ func NewLockoutManager() *LockoutManager {
 	}
 
 	lm.initHMACKey()
-	
+
 	lm.Load()
 	return lm
 }
@@ -184,4 +184,17 @@ func (lm *LockoutManager) calculateBackoff(fails int) time.Duration {
 		seconds = 1800
 	}
 	return time.Duration(seconds) * time.Second
+}
+
+func (lm *LockoutManager) GetFailCount() int {
+	if lm == nil {
+		return 0
+	}
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	if lm.state.AuthFailCount > lm.state.OTPFailCount {
+		return lm.state.AuthFailCount
+	}
+	return lm.state.OTPFailCount
 }
