@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"charm.land/bubbles/v2/list"
+	"charm.land/lipgloss/v2"
 )
 
 type VaultItem struct {
@@ -28,7 +29,8 @@ func GetVaultItem(it list.Item) (VaultItem, bool) {
 func (i VaultItem) FilterValue() string { return fmt.Sprintf("%s %s", i.Resource, i.Note) }
 func (i VaultItem) Title() string {
 	if i.IsDuplicate {
-		return i.Resource + " ⚠️"
+		warningBage := lipgloss.NewStyle().Foreground(lipgloss.Color("161")).Render(" [!]")
+		return i.Resource + warningBage
 	}
 	return i.Resource
 }
