@@ -10,7 +10,10 @@ type TrustedDevice struct {
 }
 
 type Metadata struct {
-	Salt                []byte          `json:"salt"`
-	Verifier            []byte          `json:"verifier"`
-	TrustedDevices[]TrustedDevice `json:"trusted_devices"`
+	Salt           []byte          `json:"salt"`
+	Verifier       []byte          `json:"verifier"`
+	TrustedDevices []TrustedDevice `json:"trusted_devices"`
+
+	LockedUntil   time.Time `json:"locked_until,omitempty"`
+	AuthFailCount int       `json:"auth_fail_count,omitempty"`
 }
