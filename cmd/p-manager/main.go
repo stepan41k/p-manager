@@ -72,15 +72,15 @@ func main() {
 		defer cancel()
 
 		meta, err := s3Storage.DownloadMeta(ctx)
+		if err == nil && meta != nil {
+			lockoutMgr := security.NewLockoutManager()
+			lockoutMgr.SyncCloudLockout(meta.LockedUntil, meta.AuthFailCount)
+		}
 		if err != nil {
 			log.Error("failed to download metadata from S3:", sl.Err(err))
 			fmt.Fprintf(os.Stderr, "\n❌ Network Error: Unable to connect to S3 storage.\n")
 			fmt.Fprintf(os.Stderr, "   Please check your internet connection and try again.\n\n")
 			os.Exit(1)
-		}
-		if meta != nil {
-			lockoutMgr := security.NewLockoutManager()
-			lockoutMgr.SyncCloudLockout(meta.LockedUntil, meta.AuthFailCount)
 		}
 
 		log.Info("meta data downloaded")
