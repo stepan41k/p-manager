@@ -13,6 +13,7 @@ import (
 
 	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/crypto"
+	"github.com/stepan41k/p-manager/internal/security"
 	"github.com/stepan41k/p-manager/internal/storage/s3"
 )
 
@@ -67,6 +68,7 @@ type Model struct {
 	hidePasswordAt  time.Time
 	authAttempts    int
 	maskPasswordAt  time.Time
+	lockout         *security.LockoutManager
 
 	// State of forms and lists
 	inputs       []textinput.Model
@@ -127,6 +129,7 @@ func NewModel(s3 *s3.Storage, cfg *config.Config, meta *s3.Metadata, log *slog.L
 		log:       log,
 		keys:      keys,
 		help:      help,
+		lockout:   security.NewLockoutManager(),
 	}
 
 	m.setupKeymapList()

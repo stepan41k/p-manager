@@ -1,6 +1,9 @@
 package app
 
 import (
+	"fmt"
+	"time"
+
 	"charm.land/bubbles/v2/textinput"
 	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/crypto"
@@ -44,6 +47,13 @@ func (m *Model) setupAuthInput() {
 	ti.Focus()
 
 	m.inputs[0] = ti
+
+	if isLocked, remaining := m.lockout.IsLockedOut(); isLocked {
+		m.errorMessage = fmt.Sprintf("Locked out (%d fails)! Try again in %s",
+			m.lockout.GetFailCount(),
+			remaining.Round(time.Second),
+		)
+	}
 }
 
 func (m *Model) setupOTPInput() {

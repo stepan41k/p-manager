@@ -14,6 +14,7 @@ import (
 	"github.com/stepan41k/p-manager/internal/config"
 	"github.com/stepan41k/p-manager/internal/lib/exit"
 	"github.com/stepan41k/p-manager/internal/lib/logger/sl"
+	"github.com/stepan41k/p-manager/internal/security"
 	"github.com/stepan41k/p-manager/internal/storage/s3"
 	"github.com/stepan41k/p-manager/internal/sys"
 )
@@ -43,7 +44,7 @@ func main() {
 	log.Info("attempting to parse config")
 
 	var initialModel *app.Model
-	
+
 	cfg, err := config.MustLoad()
 	if err != nil {
 		if errors.Is(err, config.ErrNotExists) {
@@ -71,6 +72,10 @@ func main() {
 		defer cancel()
 
 		meta, err := s3Storage.DownloadMeta(ctx)
+		if err == nil && meta != nil {
+			lockoutMgr := security.NewLockoutManager()
+			lockoutMgr.SyncCloudLockout(meta.LockedUntil, meta.AuthFailCount)
+		}
 		if err != nil {
 			log.Error("failed to download metadata from S3:", sl.Err(err))
 			fmt.Fprintf(os.Stderr, "\n❌ Network Error: Unable to connect to S3 storage.\n")

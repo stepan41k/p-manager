@@ -1,7 +1,10 @@
 package app
 
 import (
+	"bytes"
+	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -219,34 +222,47 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keys.Common.Submit):
-			password := m.inputs[0].Value()
-
-			authKey, vaultKey, err := crypto.DeriveMasterKeys(password, m.meta.Salt)
-			if err != nil {
-				m.errorMessage = "failed to derive key"
+			if isLocked, remaining := m.lockout.IsLockedOut(); isLocked {
+				m.errorMessage = fmt.Sprintf("Locked out (%d fails)! Try again in %s",
+					m.lockout.GetFailCount(),
+					remaining.Round(time.Second),
+				)
 				m.inputs[0].SetValue("")
 				return m, nil
 			}
+
+			password := m.inputs[0].Value()
+			authKey, vaultKey, _ := crypto.DeriveMasterKeys(password, m.meta.Salt)
 
 			if err := crypto.VerifyMasterKey(authKey, m.meta.Verifier); err != nil {
-				m.authAttempts++
+				delay, count := m.lockout.RecordAuthFailure()
 				m.inputs[0].SetValue("")
 
-				if m.authAttempts >= 5 {
-					m.WipeSecrets()
-					return m, tea.Quit
+				if delay > 0 {
+					m.errorMessage = fmt.Sprintf("Locked out (%d fails)! Try again in %s", count, delay.Round(time.Second))
+
+					m.meta.LockedUntil = time.Now().Add(delay)
+					m.meta.AuthFailCount = count
+					go func() {
+						ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+						defer cancel()
+						metaData, _ := json.Marshal(m.meta)
+						_ = m.storage.Upload(ctx, "meta.json", bytes.NewReader(metaData))
+					}()
+				} else {
+					m.errorMessage = fmt.Sprintf("Invalid password! Fail count: %d", count)
 				}
-
-				attemptsLeft := 5 - m.authAttempts
-				m.errorMessage = fmt.Sprintf("Invalid password! Attempts remaining: %d", attemptsLeft)
-
 				return m, nil
 			}
+
+			m.inputs[0].SetValue("")
 
 			m.authAttempts = 0
 			m.authKey = authKey
 			m.vaultKey = vaultKey
 
+			m.lockout.RecordSuccess()
+			
 			if m.checkIsTrustedDevice() {
 				m.SetState(vaultState)
 				m.errorMessage = "Device recognized. Loading..."
@@ -255,7 +271,6 @@ func (m *Model) updateAuth(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			code, _ := crypto.GenerateOTP()
 			m.expectedOTPHash = crypto.HashOTP(code)
-
 			m.otpExpiresAt = time.Now().Add(5 * time.Minute)
 			m.otpAttempts = 0
 
@@ -698,7 +713,7 @@ func (m *Model) updateKeymaps(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.keymapIndex > 0 {
 				m.keymapIndex--
 			} else {
-				m.keymapIndex = len(m.bindList)-1
+				m.keymapIndex = len(m.bindList) - 1
 			}
 			return m, nil
 
