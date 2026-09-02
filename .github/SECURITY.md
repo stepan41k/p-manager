@@ -56,3 +56,11 @@ Please include as many details as possible in your message:
 * Always use a strong master password that is not used anywhere else.
 * Never share your S3 storage access keys (Selectel/AWS) with third parties.
 * Regularly update `p-manager` to the latest version.
+
+## Threat Model: Trusted Devices
+- **Trade-off**: The `device_token` stored in Keyring allows bypassing 2FA on trusted machines for UX convenience.
+- **Threat Vector**: Malware running as the same local OS user can read Keyring.
+- **Mitigation Mechanisms**:
+  1. Tokens expire automatically after 30 days (`ExpiresAt`).
+  2. Users can revoke all device tokens remotely from S3 via `revokeAllDevicesCmd` (`Ctrl+R`).
+  3. `PR_SET_DUMPABLE=0` prevents dynamic memory inspection of running instances.
