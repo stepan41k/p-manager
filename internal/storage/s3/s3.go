@@ -14,6 +14,10 @@ import (
 	"github.com/stepan41k/p-manager/internal/config"
 )
 
+const (
+	MaxMetaSizeBytes = 2 * 1024 * 1024
+)
+
 type Storage struct {
 	log    *slog.Logger
 	client *s3.Client
@@ -57,7 +61,9 @@ func (s *Storage) DownloadMeta(ctx context.Context) (*Metadata, error) {
 	}
 	defer reader.Close()
 
-	data, err := io.ReadAll(reader)
+	limitedReader := io.LimitReader(reader, MaxMetaSizeBytes)
+	
+	data, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return nil, err
 	}
