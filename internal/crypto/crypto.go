@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"runtime"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -13,6 +14,8 @@ func WipeBytes(b []byte) {
 	for i := range b {
 		b[i] = 0
 	}
+	
+	runtime.KeepAlive(b)
 }
 
 func GenerateSalt(length int) ([]byte, error) {
